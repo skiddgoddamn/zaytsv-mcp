@@ -13,7 +13,7 @@ MCP-сервер (+ скилл для Claude Code) для **сборки и пу
 ### Вариант A — как плагин Claude Code (рекомендуется)
 
 ```text
-/plugin marketplace add skiddplay/zaytsv-bot-graph-mcp
+/plugin marketplace add skiddgoddamn/zaytsv-bot-graph-mcp
 /plugin install zaytsv-bot-graph@zaytsv
 ```
 
@@ -99,7 +99,7 @@ node skills/build-bot-funnel/validate.mjs path/to/import.json
 ## Разработка
 
 ```bash
-git clone https://github.com/skiddplay/zaytsv-bot-graph-mcp
+git clone https://github.com/skiddgoddamn/zaytsv-bot-graph-mcp
 cd zaytsv-bot-graph-mcp
 ZAYTSV_MCP_TOKEN=zmcp_... node src/index.mjs   # стартует stdio MCP-сервер
 ```
