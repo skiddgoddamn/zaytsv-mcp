@@ -6,7 +6,7 @@
       "args": ["-y", "zaytsv-bot-graph-mcp"],
       "env": {
         "ZAYTSV_BASE_URL": "https://zaytsv.ru",
-        "ZAYTSV_MCP_TOKEN": "${ZAYTSV_MCP_TOKEN}"
+        "ZAYTSV_MCP_TOKEN": "${ZAYTSV_MCP_TOKEN:-}"
       }
     }
   }

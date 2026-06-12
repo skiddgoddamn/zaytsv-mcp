@@ -1,6 +1,6 @@
 {
   "name": "zaytsv-bot-graph-mcp",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "MCP server to build and publish Telegram bot funnels in the zaytsv /bots service. Zero dependencies.",
   "type": "module",
   "bin": { "zaytsv-bot-graph-mcp": "src/index.mjs" },
