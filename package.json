@@ -8,6 +8,8 @@
   "files": ["src", "skills", ".mcp.json", ".claude-plugin", "README.md", "LICENSE"],
   "scripts": {
     "start": "node src/index.mjs",
+    "check": "node --check src/index.mjs",
+    "test": "node scripts/smoke.mjs",
     "validate": "node skills/build-bot-funnel/validate.mjs"
   },
   "engines": { "node": ">=18" },

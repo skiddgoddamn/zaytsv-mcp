@@ -1,5 +1,10 @@
 # zaytsv-bot-graph-mcp
 
+[![CI](https://github.com/skiddgoddamn/zaytsv-bot-graph-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/skiddgoddamn/zaytsv-bot-graph-mcp/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/zaytsv-bot-graph-mcp.svg)](https://www.npmjs.com/package/zaytsv-bot-graph-mcp)
+[![node](https://img.shields.io/node/v/zaytsv-bot-graph-mcp.svg)](https://nodejs.org)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 MCP-сервер (+ скилл для Claude Code) для **сборки и публикации воронок Telegram-ботов** в сервисе [zaytsv `/bots`](https://zaytsv.ru/bots): из текстового описания → валидный граф сценария → заливка и публикация через API.
 
 - 🤖 **8 инструментов**: `list_bots`, `list_graphs`, `get_graph`, `create_graph`, `update_graph`, `dry_run`, `publish_graph`, `import_funnel`.
