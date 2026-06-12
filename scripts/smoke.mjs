@@ -32,7 +32,7 @@ function finish() {
   const ok =
     init?.result?.serverInfo?.name === "zaytsv-bot-graph" &&
     Array.isArray(tools) &&
-    tools.length === 8;
+    tools.length === 10;
   child.kill();
   if (!ok) {
     console.error("SMOKE FAIL:", JSON.stringify({ init, tl }, null, 2));

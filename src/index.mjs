@@ -1,39 +1,69 @@
 #!/usr/bin/env node
 /**
- * zaytsv-bot-graph-mcp — MCP-сервер для сборки и публикации графов Telegram-ботов
- * через API сервиса zaytsv /bots. Без внешних зависимостей (голый JSON-RPC по stdio),
- * поэтому работает сразу, без npm install — в Claude Code, Cursor, Windsurf и т.п.
+ * zaytsv-bot-graph-mcp — MCP-сервер для сборки и публикации воронок Telegram-ботов
+ * через API сервиса zaytsv /bots. Без внешних зависимостей (голый JSON-RPC по stdio).
  *
- * Авторизация: персональный токен (PAT) Bearer; fallback — session-cookie.
+ * Авторизация (в порядке приоритета):
+ *   1) env ZAYTSV_MCP_TOKEN — персональный токен "zmcp_..."
+ *   2) файл ~/.zaytsv-bot-graph/token  (заполняется инструментом set_token)
+ *   3) session-cookie (ZAYTSV_SESSION_COOKIE / ZAYTSV_COOKIE) — fallback
+ *
+ * Если токена нет — инструменты не падают с сухой ошибкой, а возвращают пошаговую
+ * инструкцию; есть инструменты `setup` (статус + как подключить) и `set_token`
+ * (пользователь присылает токен в чат — агент сохраняет его в конфиг, без рестарта).
  *
  * ENV:
- *   ZAYTSV_MCP_TOKEN       персональный токен "zmcp_..." (создаётся в вебе: /bots/mcp-tokens)
- *   ZAYTSV_BASE_URL        база API. По умолчанию https://zaytsv.ru (дев: http://localhost:8066)
- *   ZAYTSV_SESSION_COOKIE  (fallback) значение куки SESSION из браузера
- *   ZAYTSV_COOKIE          (fallback) полная строка Cookie
+ *   ZAYTSV_MCP_TOKEN, ZAYTSV_BASE_URL, ZAYTSV_SESSION_COOKIE, ZAYTSV_COOKIE
  */
 
 import { createInterface } from "node:readline";
+import os from "node:os";
+import fs from "node:fs";
+import path from "node:path";
 
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 const BASE = (process.env.ZAYTSV_BASE_URL || "https://zaytsv.ru").replace(/\/+$/, "");
-const TOKEN = (process.env.ZAYTSV_MCP_TOKEN || "").trim();
-const COOKIE =
-  process.env.ZAYTSV_COOKIE ||
-  (process.env.ZAYTSV_SESSION_COOKIE ? `SESSION=${process.env.ZAYTSV_SESSION_COOKIE}` : "");
+const CONFIG_DIR = path.join(os.homedir(), ".zaytsv-bot-graph");
+const TOKEN_FILE = path.join(CONFIG_DIR, "token");
+const TOKENS_PAGE = `${BASE}/bots/mcp-tokens`;
+
+function readFileToken() {
+  try { return fs.readFileSync(TOKEN_FILE, "utf8").trim(); } catch { return ""; }
+}
+function getToken() {
+  return (process.env.ZAYTSV_MCP_TOKEN || "").trim() || readFileToken();
+}
+function getCookie() {
+  return process.env.ZAYTSV_COOKIE ||
+    (process.env.ZAYTSV_SESSION_COOKIE ? `SESSION=${process.env.ZAYTSV_SESSION_COOKIE}` : "");
+}
+function saveToken(token) {
+  fs.mkdirSync(CONFIG_DIR, { recursive: true });
+  fs.writeFileSync(TOKEN_FILE, token.trim() + "\n", { mode: 0o600 });
+  try { fs.chmodSync(TOKEN_FILE, 0o600); } catch { /* windows */ }
+}
+function isAuthed() { return !!(getToken() || getCookie()); }
+
+const NO_AUTH_HELP =
+  "Нет доступа к zaytsv /bots — не настроена авторизация.\n\n" +
+  `Как подключить (помоги пользователю по шагам):\n` +
+  `1) Открой ${TOKENS_PAGE} и войди в аккаунт.\n` +
+  `2) Нажми «Создать токен», скопируй секрет (вид zmcp_...). Он показывается один раз.\n` +
+  `3) Пришли токен сюда — и я вызову инструмент set_token, чтобы сохранить его. (Или задай env ZAYTSV_MCP_TOKEN.)\n\n` +
+  "Подсказка ассистенту: попроси пользователя выполнить шаги 1–2 и прислать токен, затем вызови set_token с этим значением.";
 
 function authHeaders() {
   const h = { "Content-Type": "application/json" };
-  if (TOKEN) h.Authorization = `Bearer ${TOKEN}`;
-  else if (COOKIE) h.Cookie = COOKIE;
+  const token = getToken();
+  const cookie = getCookie();
+  if (token) h.Authorization = `Bearer ${token}`;
+  else if (cookie) h.Cookie = cookie;
   return h;
 }
 
-async function api(path, { method = "GET", body } = {}) {
-  if (!TOKEN && !COOKIE) {
-    throw new Error("Не задана авторизация: установи ZAYTSV_MCP_TOKEN (рекомендуется) или ZAYTSV_SESSION_COOKIE в env.");
-  }
-  const res = await fetch(`${BASE}${path}`, {
+async function api(path_, { method = "GET", body } = {}) {
+  if (!isAuthed()) throw new Error(NO_AUTH_HELP);
+  const res = await fetch(`${BASE}${path_}`, {
     method,
     headers: authHeaders(),
     body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -42,8 +72,12 @@ async function api(path, { method = "GET", body } = {}) {
   let data = null;
   try { data = text ? JSON.parse(text) : null; } catch { data = text; }
   if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      throw new Error(`Доступ отклонён (HTTP ${res.status}). Токен невалиден, отозван или истёк.\n` +
+        `Создай новый на ${TOKENS_PAGE} и пришли мне — я сохраню через set_token.`);
+    }
     const msg = typeof data === "string" ? data : JSON.stringify(data);
-    throw new Error(`${method} ${path} → HTTP ${res.status}. ${(msg || "").slice(0, 600)}`);
+    throw new Error(`${method} ${path_} → HTTP ${res.status}. ${(msg || "").slice(0, 600)}`);
   }
   return data;
 }
@@ -60,6 +94,8 @@ function extractGraph(g) {
 }
 
 const TOOLS = [
+  { name: "setup", description: "Показать статус авторизации и пошаговую инструкцию подключения. Вызывай первым, если пользователь не знает, что делать, или при ошибке доступа.", inputSchema: { type: "object", properties: {} } },
+  { name: "set_token", description: "Сохранить персональный токен (zmcp_...), который пользователь создал на /bots/mcp-tokens. Применяется сразу, без рестарта.", inputSchema: { type: "object", properties: { token: { type: "string", description: "Секрет токена, начинается с zmcp_" } }, required: ["token"] } },
   { name: "list_bots", description: "Список ботов пользователя (id, имя, статус).", inputSchema: { type: "object", properties: {} } },
   { name: "list_graphs", description: "Список графов (сценариев) бота.", inputSchema: { type: "object", properties: { botId: { type: "string" } }, required: ["botId"] } },
   { name: "get_graph", description: "Получить граф целиком по graphId.", inputSchema: { type: "object", properties: { graphId: { type: "string" } }, required: ["graphId"] } },
@@ -73,6 +109,25 @@ const TOOLS = [
 async function handleCall(params) {
   const a = (params && params.arguments) || {};
   switch (params && params.name) {
+    case "setup": {
+      if (isAuthed()) {
+        const via = getToken() ? "персональный токен" : "session-cookie";
+        return okResult(`✅ Авторизация настроена (${via}). База API: ${BASE}.\n` +
+          `Можно собирать и публиковать ботов: list_bots, create_graph, import_funnel и др.`);
+      }
+      return okResult(NO_AUTH_HELP);
+    }
+    case "set_token": {
+      const t = (a.token || "").trim();
+      if (!t) throw new Error("Передай token — секрет вида zmcp_..., который ты создал на " + TOKENS_PAGE);
+      saveToken(t);
+      const warn = t.startsWith("zmcp_") ? "" : "\n⚠️ Обычно токен начинается с «zmcp_» — проверь, что скопирован весь секрет.";
+      // лёгкая проверка валидности
+      let check = "";
+      try { const bots = await api("/api/tg/bots"); check = `\nПроверка: доступно ботов — ${Array.isArray(bots) ? bots.length : "?"}.`; }
+      catch (e) { check = `\n⚠️ Токен сохранён, но проверка не прошла: ${(e.message || "").split("\n")[0]}`; }
+      return okResult(`✅ Токен сохранён (${TOKEN_FILE}). Применяется сразу.${warn}${check}`);
+    }
     case "list_bots": return okResult(await api("/api/tg/bots"));
     case "list_graphs": return okResult(await api(`/api/tg/bots/${a.botId}/graphs`));
     case "get_graph": return okResult(await api(`/api/tg/graphs/${a.graphId}`));
@@ -138,7 +193,6 @@ rl.on("line", async (line) => {
     } else if (method === "ping") {
       send({ jsonrpc: "2.0", id, result: {} });
     } else if (id !== undefined && id !== null) {
-      // неизвестный метод с id — корректный JSON-RPC error; нотификации игнорируем
       send({ jsonrpc: "2.0", id, error: { code: -32601, message: `Method not found: ${method}` } });
     }
   } catch (e) {
@@ -146,4 +200,4 @@ rl.on("line", async (line) => {
   }
 });
 
-process.stderr.write(`[zaytsv-bot-graph] MCP ${VERSION}. BASE=${BASE}. Авторизация: ${TOKEN ? "токен (Bearer)" : COOKIE ? "cookie" : "НЕ задана"}.\n`);
+process.stderr.write(`[zaytsv-bot-graph] MCP ${VERSION}. BASE=${BASE}. Авторизация: ${getToken() ? "токен" : getCookie() ? "cookie" : "не задана (вызови setup)"}.\n`);
