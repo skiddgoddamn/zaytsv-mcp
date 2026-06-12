@@ -19,6 +19,22 @@ const warns = [];
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const VAR_RE = /^[a-z_][a-z0-9_]{0,63}$/;
+const TAG_RE = /^[a-z0-9_-]{1,64}$/;
+
+// kind -> допустимые op (для подсказок; бэкенд блокирует только TAG/VARIABLE)
+const COND_OPS = {
+  TAG: ["HAS", "NOT_HAS"],
+  VARIABLE: ["EQUALS", "NOT_EQUALS", "CONTAINS", "NOT_EMPTY", "EMPTY", "GT", "LT"],
+  UTM: ["EQUALS", "CONTAINS", "NOT_EMPTY", "EMPTY"],
+  NAME: ["EQUALS", "CONTAINS", "NOT_EMPTY", "EMPTY"],
+  EMAIL: ["EQUALS", "CONTAINS", "NOT_EMPTY", "EMPTY"],
+  PHONE: ["EQUALS", "CONTAINS", "NOT_EMPTY", "EMPTY"],
+  USERNAME: ["EQUALS", "CONTAINS"],
+  SUBSCRIBED: ["SUBSCRIBED", "NOT_SUBSCRIBED"],
+  CURRENT_DATE: ["BEFORE", "AFTER", "EQUALS"],
+  CURRENT_TIME: ["BETWEEN"],
+  DAY_OF_WEEK: ["IN"],
+};
 
 // cardsToLegacy: текст = первая text-карточка с непустым text (или image.url -> photoUrl)
 function cardsToLegacy(cards) {
@@ -99,6 +115,26 @@ for (const n of nodes) {
     case "BRANCH":
       if (!Array.isArray(c.cases) || c.cases.length === 0) errors.push(`${who}: нужен хотя бы один case.`);
       break;
+    case "CONDITION": {
+      if (c.match !== "ALL" && c.match !== "ANY") errors.push(`CONDITION_BAD_MATCH: ${who} — match ∈ {ALL,ANY}.`);
+      if (!Array.isArray(c.conditions) || c.conditions.length === 0) {
+        errors.push(`CONDITION_EMPTY: ${who} — нужно хотя бы одно условие.`);
+        break;
+      }
+      c.conditions.forEach((cond, i) => {
+        if (!cond || typeof cond !== "object") { errors.push(`${who}: условие #${i + 1} — не объект.`); return; }
+        const kind = cond.kind;
+        // Бэкенд блокирует публикацию только для TAG.value и VARIABLE.key:
+        if (kind === "TAG" && !TAG_RE.test(String(cond.value || ""))) errors.push(`CONDITION_BAD_TAG: ${who} — TAG.value ∈ [a-z0-9_-]{1,64}.`);
+        if (kind === "VARIABLE" && !VAR_RE.test(String(cond.key || ""))) errors.push(`CONDITION_BAD_KEY: ${who} — VARIABLE.key ∈ [a-z_][a-z0-9_]{0,63}.`);
+        // Остальное — подсказки (рантайм бэкенда отдаст false, но публикацию не сорвёт):
+        if (!COND_OPS[kind]) warns.push(`${who}: неизвестный kind «${kind}» в условии #${i + 1} — рантайм даст false.`);
+        else if (cond.op && !COND_OPS[kind].includes(cond.op)) warns.push(`${who}: op «${cond.op}» не из {${COND_OPS[kind].join(",")}} для ${kind} — рантайм даст false.`);
+        if (kind === "SUBSCRIBED" && !/^-?\d+$/.test(String(cond.key || "").trim())) warns.push(`${who}: SUBSCRIBED.key должен быть числовым id канала — иначе false (и бот должен быть админом канала).`);
+        if (kind === "UTM" && !cond.key) warns.push(`${who}: UTM без key — рантайм даст false (ожидается source/medium/campaign/content/term).`);
+      });
+      break;
+    }
   }
 }
 

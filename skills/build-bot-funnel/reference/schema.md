@@ -46,7 +46,7 @@
 - `SEND_PHOTO` — `{ "photoUrl": "https://...", "text": "подпись (необязательно)" }`
 
 ### Логика / ветвление
-- `CONDITION` — выходы `yes` / `no`. `{ "match":"ALL"|"ANY", "conditions":[ { "kind":"...", "op":"...", "key":"...", "value":"..." } ] }`
+- `CONDITION` — проверка условий, выходы `yes` / `no`. `{ "match":"ALL"|"ANY", "conditions":[ { "kind":"...", "op":"...", "key":"...", "value":"..." } ] }`. `match:"ALL"` — все условия истинны; `"ANY"` — хотя бы одно. Полный список `kind`/`op`/полей — в разделе [«Условия CONDITION»](#условия-condition).
 - `BRANCH` — `{ "cases":[ {"id":"c1","label":"...","expression":"var.x=='a'"} ], "hasDefault": false, "abTest": false }`. Выходы: `case_<id>` (+ `default`).
 - `ASK_QUESTION` — вопрос со сбором ответа. `{ "promptText":"...","saveTo":"name","validator":"ANY"|"PHONE"|"EMAIL"|"REGEX","regex":"...","retryText":"...","maxAttempts":3 }`. Выходы `valid` / `invalid`.
 - `END` — `{}` (конец ветки).
@@ -64,6 +64,28 @@
 ### Внешнее / прочее
 - `CALL_WEBHOOK` — `{ "url":"https://...", "method":"POST", "bodyTemplate":"{...}", "timeoutMs":5000 }`. Выходы `ok` / `error`.
 - `AI_REPLY`, `PAYMENT_LINK`.
+
+## Условия CONDITION
+
+Каждый элемент `conditions[]` — `{ "kind", "op", ...поля }`. Любая внутренняя ошибка условия = `false` (узел уходит в `no`).
+
+| `kind` | `op` (допустимые) | Поля | Что проверяет |
+|---|---|---|---|
+| `TAG` | `HAS`, `NOT_HAS` | `value` — метка `[a-z0-9_-]{1,64}` | есть ли у пользователя тег |
+| `VARIABLE` | `EQUALS`, `NOT_EQUALS`, `CONTAINS`, `NOT_EMPTY`, `EMPTY`, `GT`, `LT` | `key` — имя переменной `[a-z_][a-z0-9_]{0,63}`, `value` | значение переменной (`GT`/`LT` — числовое сравнение) |
+| `UTM` | `EQUALS`, `CONTAINS`, `NOT_EMPTY`, `EMPTY` | `key` ∈ `source`/`medium`/`campaign`/`content`/`term`, `value` | UTM-метку клика (`utm_<key>`), регистронезависимо |
+| `NAME` | `EQUALS`, `CONTAINS`, `NOT_EMPTY`, `EMPTY` | `value` | имя из профиля, регистронезависимо |
+| `EMAIL` | `EQUALS`, `CONTAINS`, `NOT_EMPTY`, `EMPTY` | `value` | email из профиля |
+| `PHONE` | `EQUALS`, `CONTAINS`, `NOT_EMPTY`, `EMPTY` | `value` | телефон из профиля |
+| `USERNAME` | `EQUALS`, `CONTAINS` | `value` | @username пользователя Telegram |
+| `SUBSCRIBED` | `SUBSCRIBED`, `NOT_SUBSCRIBED` | `key` — **числовой** id канала/группы (напр. `-1001234567890`) | подписан ли пользователь на канал бота |
+| `CURRENT_DATE` | `BEFORE`, `AFTER`, `EQUALS` | `value` — дата `YYYY-MM-DD` | сегодняшнюю дату (МСК) |
+| `CURRENT_TIME` | `BETWEEN` | `value`, `value2` — время `HH:mm` | текущее время в интервале (через полночь — если `value`>`value2`) |
+| `DAY_OF_WEEK` | `IN` | `days` — массив из `MON`,`TUE`,`WED`,`THU`,`FRI`,`SAT`,`SUN` | день недели (МСК) |
+
+Для `NOT_EMPTY`/`EMPTY` поле `value` не нужно. `UTM` без `key` всегда `false`.
+
+**`SUBSCRIBED`** работает только если бот **админ** в канале/группе и канал «привязан» (бот узнаёт о членстве через хук `my_chat_member` — добавь бота в канал админом). `key` должен парситься в число, иначе условие = `false`. Профильные поля (`NAME`/`EMAIL`/`PHONE`) и UTM заполняются по ходу воронки (`ASK_QUESTION`→`saveTo`, диплинк-клик с UTM).
 
 ## Выходные хэндлы (`sourceHandle`) — шпаргалка
 | Узел | Хэндлы |

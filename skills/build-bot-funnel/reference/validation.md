@@ -30,6 +30,7 @@
 - `TRIGGER_TEXT`: `matchMode` ∈ {ANY,EQUALS,CONTAINS,REGEX}; для не-ANY нужен `value`.
 - `ASK_QUESTION`: `promptText` обязателен; `saveTo` ∈ `[a-z_][a-z0-9_]{0,63}`.
 - `BRANCH`: ≥1 case; выражения валидны (или `abTest:true`).
+- `CONDITION`: `match` ∈ {ALL, ANY} (`CONDITION_BAD_MATCH`); ≥1 элемент в `conditions` (`CONDITION_EMPTY`). Для `kind:"TAG"` — `value` ∈ `[a-z0-9_-]{1,64}` (`CONDITION_BAD_TAG`); для `kind:"VARIABLE"` — `key` ∈ `[a-z_][a-z0-9_]{0,63}` (`CONDITION_BAD_KEY`). Остальные `kind` (UTM/NAME/EMAIL/PHONE/USERNAME/SUBSCRIBED/CURRENT_*/DAY_OF_WEEK) бэкенд проверяет в рантайме — некорректный `kind`/`op` или нечисловой `key` у `SUBSCRIBED` молча дают `false` (выход `no`), публикацию не блокируют. Список `kind`/`op` — в schema.md.
 - `CALL_WEBHOOK`: `url` обязателен, http(s)://.
 - `DELAY`: `FIXED` с `durationSec>0`, либо `UNTIL` с `isoDate`+`time`.
 - Метки: `[a-z0-9_-]{1,64}`. Переменные: `[a-z_][a-z0-9_]{0,63}`.
