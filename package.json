@@ -1,0 +1,18 @@
+{
+  "name": "zaytsv-bot-graph-mcp",
+  "version": "0.1.0",
+  "description": "MCP server to build and publish Telegram bot funnels in the zaytsv /bots service. Zero dependencies.",
+  "type": "module",
+  "bin": { "zaytsv-bot-graph-mcp": "src/index.mjs" },
+  "main": "src/index.mjs",
+  "files": ["src", "skills", ".mcp.json", ".claude-plugin", "README.md", "LICENSE"],
+  "scripts": {
+    "start": "node src/index.mjs",
+    "validate": "node skills/build-bot-funnel/validate.mjs"
+  },
+  "engines": { "node": ">=18" },
+  "keywords": ["mcp", "telegram", "bot", "funnel", "zaytsv", "claude-code", "model-context-protocol"],
+  "repository": { "type": "git", "url": "https://github.com/skiddplay/zaytsv-bot-graph-mcp.git" },
+  "homepage": "https://zaytsv.ru/bots",
+  "license": "MIT"
+}

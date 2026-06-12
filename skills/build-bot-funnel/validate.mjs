@@ -1,0 +1,147 @@
+#!/usr/bin/env node
+// Оффлайн-валидатор графа zaytsv-bot-graph. Без зависимостей.
+// Использование:  node validate.mjs <path/to/import.json>
+// Повторяет ключевые правила GraphValidator + cardsToLegacy редактора.
+
+import { readFileSync } from "node:fs";
+
+const path = process.argv[2];
+if (!path) { console.error("Usage: node validate.mjs <import.json>"); process.exit(2); }
+
+let g;
+try { g = JSON.parse(readFileSync(path, "utf8")); }
+catch (e) { console.error("❌ Не удалось прочитать/распарсить JSON:", e.message); process.exit(2); }
+
+const nodes = Array.isArray(g.nodes) ? g.nodes : [];
+const edges = Array.isArray(g.edges) ? g.edges : [];
+const errors = [];
+const warns = [];
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const VAR_RE = /^[a-z_][a-z0-9_]{0,63}$/;
+
+// cardsToLegacy: текст = первая text-карточка с непустым text (или image.url -> photoUrl)
+function cardsToLegacy(cards) {
+  cards = Array.isArray(cards) ? cards : [];
+  const firstImage = cards.find((c) => c && c.type === "image" && c.url);
+  const firstText = cards.find((c) => c && c.type === "text" && c.text);
+  const firstMedia = cards.find((c) => c && ["image", "video", "audio", "file"].includes(c.type) && c.text);
+  let text, photoUrl;
+  if (firstImage) { photoUrl = firstImage.url; text = firstImage.text || (firstText && firstText.text) || ""; }
+  else if (firstText) { text = firstText.text; }
+  else if (firstMedia) { text = firstMedia.text; }
+  if (!text && !photoUrl) text = "";
+  return { text: text || "", photoUrl: photoUrl || "" };
+}
+const blank = (s) => !s || !String(s).trim();
+
+// --- id / структура ---
+const ids = new Set();
+for (const n of nodes) {
+  if (!n || !n.id) { errors.push(`Узел без id: ${JSON.stringify(n).slice(0, 80)}`); continue; }
+  if (ids.has(n.id)) errors.push(`Дубль id узла: ${n.id}`);
+  ids.add(n.id);
+  if (!UUID_RE.test(n.id)) warns.push(`id узла не UUID (бэкенд десериализует UUID): ${n.id} «${n.config?._title || n.type}»`);
+}
+const edgeIds = new Set();
+for (const e of edges) {
+  if (e.id && edgeIds.has(e.id)) errors.push(`Дубль id ребра: ${e.id}`);
+  if (e.id) edgeIds.add(e.id);
+  if (!ids.has(e.sourceNodeId)) errors.push(`Висячее ребро ${e.id}: нет sourceNodeId ${e.sourceNodeId}`);
+  if (!ids.has(e.targetNodeId)) errors.push(`Висячее ребро ${e.id}: нет targetNodeId ${e.targetNodeId}`);
+}
+
+// --- per-node ---
+const triggers = nodes.filter((n) => String(n.type).startsWith("TRIGGER") || n.type === "BROADCAST_FILTER");
+if (triggers.length === 0) errors.push("Нет ни одного триггера (TRIGGER_*) — graph не опубликуется.");
+const broadcast = nodes.filter((n) => n.type === "BROADCAST_FILTER");
+if (broadcast.length && triggers.length > broadcast.length) errors.push("BROADCAST_FILTER должен быть единственным триггером.");
+
+for (const n of nodes) {
+  const c = n.config || {};
+  const who = `«${c._title || n.id}» (${n.type})`;
+  switch (n.type) {
+    case "SEND_MESSAGE": {
+      const flat = !blank(c.text) || !blank(c.photoUrl);
+      const lg = Array.isArray(c.cards) && c.cards.length ? cardsToLegacy(c.cards) : { text: c.text || "", photoUrl: c.photoUrl || "" };
+      if (!flat) errors.push(`SEND_NO_TEXT: ${who} — пустой config.text/photoUrl.`);
+      else if (blank(lg.text) && blank(lg.photoUrl)) errors.push(`SEND_NO_TEXT: ${who} — после cardsToLegacy текст пуст (нет text-карточки с содержимым).`);
+      const t = String(c.text || "");
+      const lim = !blank(c.photoUrl) ? 1024 : 4096;
+      if (t.length > lim) errors.push(`Текст ${who} = ${t.length} > ${lim}.`);
+      break;
+    }
+    case "SEND_PHOTO":
+      if (blank(c.photoUrl)) errors.push(`${who}: нужен photoUrl.`);
+      break;
+    case "TRIGGER_COMMAND":
+      if (blank(c.command)) errors.push(`${who}: нужен command.`);
+      break;
+    case "TRIGGER_CALLBACK":
+      if (blank(c.value)) errors.push(`${who}: нужен value.`);
+      if (c.matchMode && !["EQUALS", "STARTS_WITH"].includes(c.matchMode)) errors.push(`${who}: matchMode ∈ {EQUALS,STARTS_WITH}.`);
+      break;
+    case "TRIGGER_TEXT":
+      if (c.matchMode && c.matchMode !== "ANY" && blank(c.value)) errors.push(`${who}: для matchMode≠ANY нужен value.`);
+      break;
+    case "ASK_QUESTION":
+      if (blank(c.promptText)) errors.push(`${who}: нужен promptText.`);
+      if (c.saveTo && !VAR_RE.test(c.saveTo)) errors.push(`${who}: saveTo «${c.saveTo}» не матчит [a-z_][a-z0-9_]{0,63}.`);
+      break;
+    case "CALL_WEBHOOK":
+      if (blank(c.url) || !/^https?:\/\//.test(c.url)) errors.push(`${who}: url обязателен и http(s)://.`);
+      break;
+    case "DELAY":
+      if (c.kind === "FIXED") { if (!(Number(c.durationSec) > 0)) errors.push(`${who}: FIXED требует durationSec>0.`); }
+      else if (c.kind === "UNTIL") { if (blank(c.isoDate) || blank(c.time)) errors.push(`${who}: UNTIL требует isoDate и time.`); }
+      else errors.push(`${who}: kind ∈ {FIXED,UNTIL}.`);
+      break;
+    case "BRANCH":
+      if (!Array.isArray(c.cases) || c.cases.length === 0) errors.push(`${who}: нужен хотя бы один case.`);
+      break;
+  }
+}
+
+// --- достижимость от триггеров ---
+const adj = {};
+for (const e of edges) (adj[e.sourceNodeId] = adj[e.sourceNodeId] || []).push(e.targetNodeId);
+const reach = new Set();
+const stack = triggers.map((t) => t.id);
+while (stack.length) { const x = stack.pop(); if (reach.has(x)) continue; reach.add(x); (adj[x] || []).forEach((y) => stack.push(y)); }
+for (const n of nodes) {
+  if (String(n.type).startsWith("TRIGGER") || n.type === "BROADCAST_FILTER") continue;
+  if (!reach.has(n.id)) errors.push(`Недостижимый узел от триггера: «${n.config?._title || n.id}» (${n.type}).`);
+}
+
+// --- синхронные циклы (цикл без DELAY/ASK_QUESTION/SCHEDULE = ошибка) ---
+const waitTypes = new Set(["ASK_QUESTION", "DELAY", "SCHEDULE"]);
+const typeById = Object.fromEntries(nodes.map((n) => [n.id, n.type]));
+const color = {}; // 0=white,1=gray,2=black
+function dfs(u, pathHasWaitAtEdgeInto) {
+  color[u] = 1;
+  for (const v of adj[u] || []) {
+    if (color[v] === 1) {
+      // нашли цикл u->...->v; ок только если в цикле есть wait-узел
+      // упрощённо: если ни u, ни v не wait — предупредим как потенциальный синхронный цикл
+      if (!waitTypes.has(typeById[u]) && !waitTypes.has(typeById[v]))
+        warns.push(`Возможный синхронный цикл рядом с ${v} — убедись, что в петле есть DELAY/ASK_QUESTION/SCHEDULE.`);
+    } else if (color[v] !== 2) {
+      dfs(v);
+    }
+  }
+  color[u] = 2;
+}
+for (const n of nodes) if (!color[n.id]) dfs(n.id);
+
+// --- отчёт ---
+const byType = {};
+nodes.forEach((n) => (byType[n.type] = (byType[n.type] || 0) + 1));
+console.log(`Граф: ${nodes.length} узлов, ${edges.length} рёбер, ${triggers.length} триггеров`);
+console.log(`Типы: ${JSON.stringify(byType)}`);
+if (warns.length) { console.log(`\n⚠️  Предупреждения (${warns.length}):`); warns.forEach((w) => console.log("  • " + w)); }
+if (errors.length) {
+  console.log(`\n❌ Ошибки (${errors.length}) — публикация не пройдёт:`);
+  errors.forEach((e) => console.log("  • " + e));
+  process.exit(1);
+}
+console.log("\n✅ Валидация пройдена — граф готов к заливке/публикации.");

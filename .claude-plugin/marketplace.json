@@ -1,0 +1,12 @@
+{
+  "name": "zaytsv",
+  "owner": { "name": "zaytsv", "url": "https://zaytsv.ru" },
+  "description": "Плагины zaytsv для Claude Code.",
+  "plugins": [
+    {
+      "name": "zaytsv-bot-graph",
+      "source": "./",
+      "description": "Сборка и публикация воронок Telegram-ботов (zaytsv /bots) из описания через MCP + скилл."
+    }
+  ]
+}
