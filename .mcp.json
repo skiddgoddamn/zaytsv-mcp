@@ -5,7 +5,7 @@
       "args": ["${CLAUDE_PLUGIN_ROOT}/src/index.mjs"],
       "env": {
         "ZAYTSV_BASE_URL": "https://zaytsv.ru",
-        "ZAYTSV_MCP_TOKEN": "${ZAYTSV_MCP_TOKEN}"
+        "ZAYTSV_MCP_TOKEN": "${ZAYTSV_MCP_TOKEN:-}"
       }
     }
   }

@@ -21,7 +21,7 @@ import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
 
-const VERSION = "0.4.0";
+const VERSION = "0.4.1";
 const BASE = (process.env.ZAYTSV_BASE_URL || "https://zaytsv.ru").replace(/\/+$/, "");
 const CONFIG_DIR = path.join(os.homedir(), ".zaytsv-bot-graph");
 const TOKEN_FILE = path.join(CONFIG_DIR, "token");
@@ -31,7 +31,11 @@ function readFileToken() {
   try { return fs.readFileSync(TOKEN_FILE, "utf8").trim(); } catch { return ""; }
 }
 function getToken() {
-  return (process.env.ZAYTSV_MCP_TOKEN || "").trim() || readFileToken();
+  // Если переменная не задана, Claude Code отдаёт шаблон "${ZAYTSV_MCP_TOKEN}" литералом —
+  // такой env нельзя считать токеном, иначе он перекрывает файл из set_token (вечный 401).
+  const env = (process.env.ZAYTSV_MCP_TOKEN || "").trim();
+  if (env && !env.startsWith("${")) return env;
+  return readFileToken();
 }
 function getCookie() {
   return process.env.ZAYTSV_COOKIE ||
@@ -128,11 +132,15 @@ async function handleCall(params) {
       if (!t) throw new Error("Передай token — секрет вида zmcp_..., который ты создал на " + TOKENS_PAGE);
       saveToken(t);
       const warn = t.startsWith("zmcp_") ? "" : "\n⚠️ Обычно токен начинается с «zmcp_» — проверь, что скопирован весь секрет.";
+      const envTok = (process.env.ZAYTSV_MCP_TOKEN || "").trim();
+      const envWarn = envTok && !envTok.startsWith("${") && envTok !== t
+        ? "\n⚠️ В окружении задан другой ZAYTSV_MCP_TOKEN — он имеет приоритет над файлом. Убери/обнови env, иначе сохранённый токен не будет использоваться."
+        : "";
       // лёгкая проверка валидности
       let check = "";
       try { const bots = await api("/api/tg/bots"); check = `\nПроверка: доступно ботов — ${Array.isArray(bots) ? bots.length : "?"}.`; }
       catch (e) { check = `\n⚠️ Токен сохранён, но проверка не прошла: ${(e.message || "").split("\n")[0]}`; }
-      return okResult(`✅ Токен сохранён (${TOKEN_FILE}). Применяется сразу.${warn}${check}`);
+      return okResult(`✅ Токен сохранён (${TOKEN_FILE}). Применяется сразу.${warn}${envWarn}${check}`);
     }
     case "list_bots": return okResult(await api("/api/tg/bots"));
     case "list_graphs": return okResult(await api(`/api/tg/bots/${a.botId}/graphs`));
