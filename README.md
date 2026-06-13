@@ -7,7 +7,7 @@
 
 MCP-сервер (+ скилл для Claude Code) для **сборки и публикации воронок Telegram-ботов** в сервисе [zaytsv `/bots`](https://zaytsv.ru/bots): из текстового описания → валидный граф сценария → заливка и публикация через API.
 
-- 🤖 **8 инструментов**: `list_bots`, `list_graphs`, `get_graph`, `create_graph`, `update_graph`, `dry_run`, `publish_graph`, `import_funnel`.
+- 🤖 **14 инструментов сборки/публикации**: `list_bots`, `list_graphs`, `get_graph`, `create_graph`, `update_graph`, `dry_run`, `publish_graph`, `import_funnel`, `list_templates`, `create_graph_from_template`, `clone_graph`, `rename_graph`, `set_active_graph`, `delete_graph` (+ `setup`/`set_token`).
 - 🧠 **Скилл `build-bot-funnel`**: учит агента собирать корректный граф (типы узлов, ветки, кнопки, задержки) и проверять его перед публикацией.
 - 📦 **Без зависимостей** — чистый Node ≥18, ставится и запускается сразу.
 
@@ -89,6 +89,12 @@ MCP-сервер (+ скилл для Claude Code) для **сборки и пу
 | `dry_run(graphId, kind, value)` | прогон без публикации |
 | `publish_graph(graphId)` | публикация (вернёт `errors[]` при провале) |
 | `import_funnel(botId, name, graph)` | всё за раз: create → update → dry-run → publish |
+| `list_templates()` | готовые шаблоны воронок |
+| `create_graph_from_template(botId, templateId, name)` | граф из шаблона (DRAFT) |
+| `clone_graph(graphId)` | копия графа в новый DRAFT |
+| `rename_graph(graphId, name)` | переименовать сценарий |
+| `set_active_graph(botId, graphId)` | переключить активный (живой) граф бота |
+| `delete_graph(graphId)` | удалить граф (активный — нельзя, 409) |
 
 ---
 

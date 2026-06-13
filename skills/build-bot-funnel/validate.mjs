@@ -31,10 +31,30 @@ const COND_OPS = {
   PHONE: ["EQUALS", "CONTAINS", "NOT_EMPTY", "EMPTY"],
   USERNAME: ["EQUALS", "CONTAINS"],
   SUBSCRIBED: ["SUBSCRIBED", "NOT_SUBSCRIBED"],
+  LINK_CLICKED: ["CLICKED", "NOT_CLICKED"],
   CURRENT_DATE: ["BEFORE", "AFTER", "EQUALS"],
   CURRENT_TIME: ["BETWEEN"],
   DAY_OF_WEEK: ["IN"],
 };
+
+// ACTIONS: допустимые kind (зеркало GraphValidator.KNOWN_ACTION_KINDS)
+const ACTION_KINDS = new Set([
+  "add_tag", "remove_tag", "set_field", "stop_bot", "delete_step_message",
+  "subscribe", "unsubscribe", "autoflow_add", "autoflow_remove",
+  "subscriber_webhook", "external_request", "notify",
+  "subscriber_email", "agent_chat", "cancel_payment_subscription",
+  "getcourse_send", "getcourse_order", "amocrm_send", "amocrm_update",
+  "yametrika_event", "gsheets_send", "gsheets_get", "gsheets_update",
+  "gsheets_write_cell", "gsheets_read_cell",
+  "group_unban", "group_kick", "group_approve", "group_decline",
+]);
+
+// Telegram-safe HTML — разрешённые теги (эвристика; бэкенд использует jsoup-clean)
+const HTML_OK_TAGS = new Set([
+  "b", "strong", "i", "em", "u", "ins", "s", "strike", "del",
+  "code", "pre", "a", "tg-spoiler", "br",
+]);
+const isHttp = (u) => /^https?:\/\//.test(String(u || ""));
 
 // cardsToLegacy: текст = первая text-карточка с непустым text (или image.url -> photoUrl)
 function cardsToLegacy(cards) {
@@ -84,11 +104,26 @@ for (const n of nodes) {
       else if (blank(lg.text) && blank(lg.photoUrl)) errors.push(`SEND_NO_TEXT: ${who} — после cardsToLegacy текст пуст (нет text-карточки с содержимым).`);
       const t = String(c.text || "");
       const lim = !blank(c.photoUrl) ? 1024 : 4096;
-      if (t.length > lim) errors.push(`Текст ${who} = ${t.length} > ${lim}.`);
+      if (t.length > lim) errors.push(`SEND_TOO_LONG: ${who} = ${t.length} > ${lim}.`);
+      // HTML-безопасность (эвристика по тегам)
+      if (!blank(t) && String(c.parseMode || "").toUpperCase() === "HTML") {
+        const bad = [...t.matchAll(/<\/?([a-zA-Z][a-zA-Z0-9-]*)\b[^>]*>/g)]
+          .map((m) => m[1].toLowerCase()).filter((tag) => !HTML_OK_TAGS.has(tag));
+        if (bad.length) errors.push(`HTML_NOT_SAFE: ${who} — неразрешённые теги: ${[...new Set(bad)].join(", ")}. Разрешено: ${[...HTML_OK_TAGS].join(",")}.`);
+      }
+      // режим «Вопрос»
+      if (c.awaitReply === true) {
+        if (!c.saveTo || !VAR_RE.test(c.saveTo)) errors.push(`SEND_BAD_SAVE_TO: ${who} — awaitReply требует saveTo ∈ [a-z_][a-z0-9_]{0,63}.`);
+        if (c.validator === "REGEX") {
+          if (blank(c.regex)) errors.push(`SEND_BAD_REGEX: ${who} — REGEX-валидатор требует непустой regex.`);
+          else { try { new RegExp(c.regex); } catch (e) { errors.push(`SEND_BAD_REGEX: ${who} — ${e.message}.`); } }
+        }
+      }
       break;
     }
     case "SEND_PHOTO":
-      if (blank(c.photoUrl)) errors.push(`${who}: нужен photoUrl.`);
+      if (blank(c.photoUrl)) errors.push(`PHOTO_NO_URL: ${who} — нужен photoUrl.`);
+      if (!blank(c.caption) && String(c.caption).length > 1024) errors.push(`PHOTO_CAPTION_TOO_LONG: ${who} — подпись > 1024.`);
       break;
     case "TRIGGER_COMMAND":
       if (blank(c.command)) errors.push(`${who}: нужен command.`);
@@ -132,7 +167,55 @@ for (const n of nodes) {
         else if (cond.op && !COND_OPS[kind].includes(cond.op)) warns.push(`${who}: op «${cond.op}» не из {${COND_OPS[kind].join(",")}} для ${kind} — рантайм даст false.`);
         if (kind === "SUBSCRIBED" && !/^-?\d+$/.test(String(cond.key || "").trim())) warns.push(`${who}: SUBSCRIBED.key должен быть числовым id канала — иначе false (и бот должен быть админом канала).`);
         if (kind === "UTM" && !cond.key) warns.push(`${who}: UTM без key — рантайм даст false (ожидается source/medium/campaign/content/term).`);
+        if (kind === "LINK_CLICKED") {
+          const target = nodes.find((x) => x.id === cond.key);
+          const tracked = target && (((target.config || {}).buttons) || []).flat().some((b) => b && b.kind === "URL" && b.track === true);
+          if (!cond.key || !target) warns.push(`${who}: LINK_CLICKED.key должен быть id шага с отслеживаемой URL-кнопкой — иначе false.`);
+          else if (!tracked) warns.push(`${who}: у шага «${(target.config || {})._title || target.id}» из LINK_CLICKED.key нет URL-кнопки с track:true — рантайм даст false.`);
+        }
       });
+      break;
+    }
+    case "SET_VARIABLE":
+      if (!VAR_RE.test(String(c.key || ""))) errors.push(`VAR_BAD_KEY: ${who} — key ∈ [a-z_][a-z0-9_]{0,63}.`);
+      break;
+    case "ADD_TAG":
+    case "REMOVE_TAG":
+      if (!TAG_RE.test(String(c.tag || ""))) errors.push(`TAG_BAD_NAME: ${who} — tag ∈ [a-z0-9_-]{1,64}.`);
+      break;
+    case "FORMULA":
+      if (blank(c.expression)) errors.push(`FORMULA_NO_EXPRESSION: ${who} — нужен expression.`);
+      if (!VAR_RE.test(String(c.saveTo || ""))) errors.push(`FORMULA_BAD_SAVE_TO: ${who} — saveTo ∈ [a-z_][a-z0-9_]{0,63}.`);
+      break;
+    case "SCHEDULE": {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(c.isoDate || "")) || isNaN(Date.parse(c.isoDate))) errors.push(`SCHEDULE_BAD_DATE: ${who} — isoDate = YYYY-MM-DD.`);
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(c.time || ""))) errors.push(`SCHEDULE_BAD_TIME: ${who} — time = HH:mm.`);
+      break;
+    }
+    case "ACTIONS": {
+      if (!Array.isArray(c.actions) || c.actions.length === 0) { errors.push(`ACTIONS_EMPTY: ${who} — нужен непустой actions[].`); break; }
+      c.actions.forEach((a, i) => {
+        if (!a || typeof a !== "object") { errors.push(`${who}: действие #${i + 1} — не объект.`); return; }
+        if (!ACTION_KINDS.has(a.kind)) { errors.push(`ACTION_UNKNOWN_KIND: ${who} — неизвестный kind «${a.kind}» (#${i + 1}).`); return; }
+        if (["add_tag", "remove_tag", "autoflow_add", "autoflow_remove"].includes(a.kind) && !TAG_RE.test(String(a.tag || "")))
+          errors.push(`ACTION_BAD_TAG: ${who} — ${a.kind}.tag ∈ [a-z0-9_-]{1,64}.`);
+        if (a.kind === "set_field" && !VAR_RE.test(String(a.key || "")))
+          errors.push(`ACTION_BAD_KEY: ${who} — set_field.key ∈ [a-z_][a-z0-9_]{0,63}.`);
+        if (["subscriber_webhook", "external_request"].includes(a.kind) && !isHttp(a.url))
+          errors.push(`ACTION_BAD_URL: ${who} — ${a.kind}.url должен быть http(s)://.`);
+      });
+      break;
+    }
+    case "AI_REPLY": {
+      if (blank(c.userPromptTemplate)) errors.push(`AI_NO_PROMPT: ${who} — нужен userPromptTemplate.`);
+      if (typeof c.temperature === "number" && (c.temperature < 0 || c.temperature > 2)) errors.push(`AI_BAD_TEMPERATURE: ${who} — temperature ∈ [0.0, 2.0].`);
+      if (c.sendToUser !== true && blank(c.saveTo)) errors.push(`AI_NO_OUTPUT: ${who} — нужен sendToUser:true или saveTo.`);
+      break;
+    }
+    case "PAYMENT_LINK": {
+      const u = String(c.paymentUrl || "");
+      if (blank(u)) errors.push(`PAY_NO_URL: ${who} — нужен paymentUrl.`);
+      else if (!isHttp(u) && !u.startsWith("{{")) errors.push(`PAY_BAD_SCHEME: ${who} — paymentUrl = http(s):// или {{var.x}}.`);
       break;
     }
   }

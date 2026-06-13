@@ -13,8 +13,12 @@
 - Пробелы/таб/перенос строки = пусто (`.isBlank()`).
 
 ### Длина текста
-- `text` ≤ 4096; если есть `photoUrl` (подпись) — ≤ 1024.
-- При `parseMode:"HTML"` — текст должен быть безопасным HTML (без неразрешённых тегов). Если не уверен — `PLAIN`.
+- `text` ≤ 4096; если есть `photoUrl` (подпись) — ≤ 1024 (`SEND_TOO_LONG`).
+- При `parseMode:"HTML"` — текст должен быть безопасным Telegram-HTML, иначе `HTML_NOT_SAFE`. Разрешены только `b,strong,i,em,u,ins,s,strike,del,code,pre,a[href],tg-spoiler,br`. Если не уверен — `PLAIN`.
+
+### `SEND_MESSAGE` в режиме «Вопрос» (`awaitReply:true`)
+- `saveTo` обязателен и матчит `[a-z_][a-z0-9_]{0,63}` (`SEND_BAD_SAVE_TO`).
+- При `validator:"REGEX"` — `regex` непустой и компилируется (`SEND_BAD_REGEX`).
 
 ### Триггеры и достижимость
 - Нужен **хотя бы один корневой `TRIGGER_*`** без входящих рёбер.
@@ -28,11 +32,17 @@
 - `TRIGGER_COMMAND`: `command` обязателен.
 - `TRIGGER_CALLBACK`: `value` обязателен; `matchMode` ∈ {EQUALS, STARTS_WITH}.
 - `TRIGGER_TEXT`: `matchMode` ∈ {ANY,EQUALS,CONTAINS,REGEX}; для не-ANY нужен `value`.
-- `ASK_QUESTION`: `promptText` обязателен; `saveTo` ∈ `[a-z_][a-z0-9_]{0,63}`.
-- `BRANCH`: ≥1 case; выражения валидны (или `abTest:true`).
-- `CONDITION`: `match` ∈ {ALL, ANY} (`CONDITION_BAD_MATCH`); ≥1 элемент в `conditions` (`CONDITION_EMPTY`). Для `kind:"TAG"` — `value` ∈ `[a-z0-9_-]{1,64}` (`CONDITION_BAD_TAG`); для `kind:"VARIABLE"` — `key` ∈ `[a-z_][a-z0-9_]{0,63}` (`CONDITION_BAD_KEY`). Остальные `kind` (UTM/NAME/EMAIL/PHONE/USERNAME/SUBSCRIBED/CURRENT_*/DAY_OF_WEEK) бэкенд проверяет в рантайме — некорректный `kind`/`op` или нечисловой `key` у `SUBSCRIBED` молча дают `false` (выход `no`), публикацию не блокируют. Список `kind`/`op` — в schema.md.
-- `CALL_WEBHOOK`: `url` обязателен, http(s)://.
-- `DELAY`: `FIXED` с `durationSec>0`, либо `UNTIL` с `isoDate`+`time`.
+- `ASK_QUESTION`: `promptText` обязателен (`ASK_NO_PROMPT`); `saveTo` ∈ `[a-z_][a-z0-9_]{0,63}` (`ASK_BAD_SAVE_TO`); при `validator:"REGEX"` — валидный `regex` (`ASK_BAD_REGEX`).
+- `BRANCH`: ≥1 case (`BRANCH_NO_CASES`); вне `abTest` — непустое валидное `expression` (`BRANCH_EMPTY_EXPR`/`BRANCH_BAD_EXPR`) и подключённое ребро `case_<id>` (`BRANCH_CASE_UNCONNECTED`; `disabled:true` — если ветка намеренно пустая). В `abTest:true` рёбра нужны только у первых двух case.
+- `CONDITION`: `match` ∈ {ALL, ANY} (`CONDITION_BAD_MATCH`); ≥1 элемент в `conditions` (`CONDITION_EMPTY`). Для `kind:"TAG"` — `value` ∈ `[a-z0-9_-]{1,64}` (`CONDITION_BAD_TAG`); для `kind:"VARIABLE"` — `key` ∈ `[a-z_][a-z0-9_]{0,63}` (`CONDITION_BAD_KEY`). Остальные `kind` (UTM/NAME/EMAIL/PHONE/USERNAME/SUBSCRIBED/LINK_CLICKED/CURRENT_*/DAY_OF_WEEK) бэкенд проверяет в рантайме — некорректный `kind`/`op`, нечисловой `key` у `SUBSCRIBED` или `key` у `LINK_CLICKED` без отслеживаемой кнопки молча дают `false` (выход `no`), публикацию не блокируют. Список `kind`/`op` — в schema.md.
+- `CALL_WEBHOOK`: `url` обязателен (`WEBHOOK_NO_URL`), http(s):// (`WEBHOOK_BAD_SCHEME`).
+- `DELAY`: `kind` ∈ {FIXED,UNTIL} (`DELAY_BAD_KIND`); `FIXED` — `durationSec>0` (`DELAY_BAD_DURATION`).
+- `SET_VARIABLE`: `key` ∈ `[a-z_][a-z0-9_]{0,63}` (`VAR_BAD_KEY`). `ADD_TAG`/`REMOVE_TAG`: `tag` ∈ `[a-z0-9_-]{1,64}` (`TAG_BAD_NAME`).
+- `FORMULA`: `expression` непустой (`FORMULA_NO_EXPRESSION`); `saveTo` ∈ var-формат (`FORMULA_BAD_SAVE_TO`).
+- `SCHEDULE`: `isoDate` = валидная `YYYY-MM-DD` (`SCHEDULE_BAD_DATE`); `time` = `HH:mm` (`SCHEDULE_BAD_TIME`).
+- `ACTIONS`: непустой `actions[]` (`ACTIONS_EMPTY`); каждый `kind` — из допустимого списка (`ACTION_UNKNOWN_KIND`, список — в schema.md); per-kind: `tag` (`ACTION_BAD_TAG`), `set_field.key` (`ACTION_BAD_KEY`), `url` у `external_request`/`subscriber_webhook` (`ACTION_BAD_URL`).
+- `AI_REPLY`: `userPromptTemplate` непустой (`AI_NO_PROMPT`); `temperature` ∈ [0.0, 2.0] (`AI_BAD_TEMPERATURE`); нужен `sendToUser:true` ИЛИ `saveTo` (`AI_NO_OUTPUT`).
+- `PAYMENT_LINK`: `paymentUrl` обязателен (`PAY_NO_URL`), http(s):// или `{{var.x}}` (`PAY_BAD_SCHEME`).
 - Метки: `[a-z0-9_-]{1,64}`. Переменные: `[a-z_][a-z0-9_]{0,63}`.
 
 ## Рёбра
@@ -45,4 +55,4 @@
 - Перед публикацией полезно прогнать `dry_run` (kind `command`/`callback`/`text`) — поймать рантайм-проблемы стартовой ветки.
 
 ## Локальная проверка
-`node validate.mjs <import.json>` повторяет ключевые проверки (пустые сообщения с учётом `cardsToLegacy`, висячие рёбра, дубли id, достижимость от триггеров, длину текста, базовый конфиг DELAY/триггеров). Гонять перед каждой заливкой.
+`node validate.mjs <import.json>` повторяет ключевые проверки: пустые сообщения с учётом `cardsToLegacy`, висячие рёбра, дубли id, достижимость от триггеров, длину текста, HTML-безопасность (эвристика по тегам), режим «Вопрос» (`awaitReply`→`saveTo`/`regex`), конфиг `DELAY`/`SCHEDULE`/`FORMULA`/`ACTIONS`/`AI_REPLY`/`PAYMENT_LINK`/триггеров, условия `CONDITION` (вкл. `LINK_CLICKED` со ссылкой на отслеживаемый шаг). Гонять перед каждой заливкой.

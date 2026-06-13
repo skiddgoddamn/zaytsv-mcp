@@ -20,8 +20,10 @@ description: Собрать воронку (сценарий) Telegram-бота 
    - У каждого `SEND_MESSAGE` непустой `config.text` (и продублируй в `cards[0].text`).
    - id узлов и рёбер — валидные UUID, уникальные.
    - Есть хотя бы один корневой `TRIGGER_*`; все нелистовые узлы достижимы от триггера; синхронных циклов нет (цикл только через `ASK_QUESTION`/`DELAY`/`SCHEDULE`).
-   - Кнопки-выборы разведены по хэндлам `btn_N`; условия `CONDITION` — `yes`/`no`; вопрос — `valid`/`invalid`.
-   - `CONDITION` умеет: теги, переменные, UTM-метки, имя/email/телефон из профиля, @username, подписку на канал (`SUBSCRIBED`), дату/время/день недели. Полная таблица `kind`/`op` — в schema.md.
+   - Кнопки-выборы разведены по хэндлам `btn_N`; условия `CONDITION` — `yes`/`no`; вопрос (`ASK_QUESTION` или `SEND_MESSAGE` с `awaitReply:true`) — `valid`/`invalid`.
+   - `SEND_MESSAGE` умеет быть и сообщением, и **вопросом** (`awaitReply:true` + `saveTo`/`inputKind`/`validator`). У кнопок-ссылок (`kind:"URL"`) есть флаг `track:true` — на такой шаг ссылается условие `LINK_CLICKED`.
+   - `CONDITION` умеет: теги, переменные, UTM-метки, имя/email/телефон из профиля, @username, подписку на канал (`SUBSCRIBED`), клик по ссылке шага (`LINK_CLICKED`), дату/время/день недели. Полная таблица `kind`/`op` — в schema.md.
+   - Пакет `ACTIONS` — до 30 действий (метки, профиль, HTTP, уведомления, интеграции GetCourse/amoCRM/Google Sheets/Я.Метрика, модерация группы). Список — в schema.md.
 
 4. **Проверь локально** перед заливкой:
    ```bash
@@ -31,10 +33,11 @@ description: Собрать воронку (сценарий) Telegram-бота 
 
 5. **Залей и опубликуй через MCP `bot-graph`** (если он подключён и пользователь просит публикацию):
    - `list_bots` → выбрать `botId` (или `create_graph` в существующем боте).
-   - `create_graph(botId, name)` → получить `graphId`.
+   - `create_graph(botId, name)` → получить `graphId`. Либо стартуй с готовой основы: `list_templates` → `create_graph_from_template(botId, templateId, name)`.
    - `update_graph(graphId, nodes, edges, canvasMeta)` → залить узлы/рёбра.
    - `dry_run(graphId, kind:"command", value:"start")` → прогнать стартовую ветку, проверить `runStatus`.
    - `publish_graph(graphId)` → если вернулись `errors[]`, разобрать по `code`/`nodeId`, починить узлы, обновить, опубликовать снова.
+   - Управление сценариями: `clone_graph` (безопасно править поверх опубликованного), `rename_graph`, `set_active_graph` (переключить живой граф), `delete_graph` (активный нельзя — сначала переключи).
    Если MCP не подключён — отдай готовый `import.json` и подскажи: /bots → граф → **Импорт**.
 
 6. **Отчитайся**: сколько узлов/веток, какие тексты помечены на проверку, ссылка/ id графа.

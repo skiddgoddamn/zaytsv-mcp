@@ -21,7 +21,7 @@ import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
 
-const VERSION = "0.3.0";
+const VERSION = "0.4.0";
 const BASE = (process.env.ZAYTSV_BASE_URL || "https://zaytsv.ru").replace(/\/+$/, "");
 const CONFIG_DIR = path.join(os.homedir(), ".zaytsv-bot-graph");
 const TOKEN_FILE = path.join(CONFIG_DIR, "token");
@@ -104,6 +104,12 @@ const TOOLS = [
   { name: "dry_run", description: "Прогнать сценарий без публикации. kind: command|callback|text.", inputSchema: { type: "object", properties: { graphId: { type: "string" }, kind: { type: "string", enum: ["command", "callback", "text"] }, value: { type: "string" }, fromUsername: { type: "string" }, presetVariables: { type: "object" }, presetTags: { type: "array", items: { type: "string" } } }, required: ["graphId", "kind", "value"] } },
   { name: "publish_graph", description: "Опубликовать граф. Вернёт publishedGraphId или errors[] (code, nodeId, message).", inputSchema: { type: "object", properties: { graphId: { type: "string" } }, required: ["graphId"] } },
   { name: "import_funnel", description: "Всё за раз: создать граф, залить узлы/рёбра, (опц.) dry-run /start, опубликовать.", inputSchema: { type: "object", properties: { botId: { type: "string" }, name: { type: "string" }, graph: { type: "object" }, dryRun: { type: "boolean" }, publish: { type: "boolean" } }, required: ["botId", "graph"] } },
+  { name: "list_templates", description: "Список готовых шаблонов воронок (id, имя, описание). Можно стартовать граф из шаблона вместо сборки с нуля.", inputSchema: { type: "object", properties: {} } },
+  { name: "create_graph_from_template", description: "Создать граф (DRAFT) из шаблона (см. list_templates). Возвращает граф с id — дальше правь через update_graph.", inputSchema: { type: "object", properties: { botId: { type: "string" }, templateId: { type: "string" }, name: { type: "string" } }, required: ["botId", "templateId"] } },
+  { name: "rename_graph", description: "Переименовать сценарий (работает и для опубликованных — имя не влияет на исполнение).", inputSchema: { type: "object", properties: { graphId: { type: "string" }, name: { type: "string" } }, required: ["graphId", "name"] } },
+  { name: "clone_graph", description: "Склонировать граф в новый DRAFT «… (copy)» — безопасно итерировать поверх опубликованного.", inputSchema: { type: "object", properties: { graphId: { type: "string" } }, required: ["graphId"] } },
+  { name: "delete_graph", description: "Удалить граф. Активный (опубликованный и назначенный боту) удалить нельзя — будет 409; сначала переключи активный через set_active_graph.", inputSchema: { type: "object", properties: { graphId: { type: "string" } }, required: ["graphId"] } },
+  { name: "set_active_graph", description: "Назначить, какой опубликованный граф активен у бота (переключение живого сценария без перепубликации).", inputSchema: { type: "object", properties: { botId: { type: "string" }, graphId: { type: "string" } }, required: ["botId", "graphId"] } },
 ];
 
 async function handleCall(params) {
@@ -166,6 +172,19 @@ async function handleCall(params) {
       }
       return okResult({ graphId, steps });
     }
+    case "list_templates": return okResult(await api("/api/tg/graph-templates"));
+    case "create_graph_from_template":
+      return okResult(await api(`/api/tg/bots/${a.botId}/graphs/from-template`, { method: "POST", body: { templateId: a.templateId, name: a.name } }));
+    case "rename_graph":
+      return okResult(await api(`/api/tg/graphs/${a.graphId}/rename`, { method: "PATCH", body: { name: a.name } }));
+    case "clone_graph":
+      return okResult(await api(`/api/tg/graphs/${a.graphId}/clone`, { method: "POST" }));
+    case "delete_graph":
+      await api(`/api/tg/graphs/${a.graphId}`, { method: "DELETE" });
+      return okResult(`🗑️ Граф ${a.graphId} удалён.`);
+    case "set_active_graph":
+      await api(`/api/tg/bots/${a.botId}/active-graph`, { method: "POST", body: { graphId: a.graphId } });
+      return okResult(`✅ Активный граф бота ${a.botId} → ${a.graphId}.`);
     default:
       throw new Error(`Неизвестный инструмент: ${params && params.name}`);
   }
