@@ -1,7 +1,7 @@
 {
   "name": "zaytsv-bot-graph",
   "displayName": "Zaytsv Bot Graph",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "MCP-сервер + скилл для сборки и публикации воронок Telegram-ботов в сервисе zaytsv /bots: из текстового описания → валидный граф → заливка и публикация по API.",
   "author": { "name": "zaytsv", "url": "https://zaytsv.ru" },
   "homepage": "https://zaytsv.ru/bots",

@@ -29,16 +29,18 @@ function finish() {
   const init = got[1];
   const tl = got[2];
   const tools = tl?.result?.tools;
+  const toolNames = Array.isArray(tools) ? tools.map((t) => t.name) : [];
   const ok =
     init?.result?.serverInfo?.name === "zaytsv-bot-graph" &&
     Array.isArray(tools) &&
-    tools.length === 16;
+    tools.length === 17 &&
+    toolNames.includes("list_channels");
   child.kill();
   if (!ok) {
     console.error("SMOKE FAIL:", JSON.stringify({ init, tl }, null, 2));
     process.exit(1);
   }
-  console.log(`smoke OK: initialize=${init.result.serverInfo.name} v${init.result.serverInfo.version}, tools=${tools.length}`);
+  console.log(`smoke OK: initialize=${init.result.serverInfo.name} v${init.result.serverInfo.version}, tools=${tools.length}, list_channels=${toolNames.includes("list_channels")}`);
   process.exit(0);
 }
 

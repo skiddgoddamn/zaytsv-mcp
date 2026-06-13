@@ -7,7 +7,7 @@
 
 MCP-сервер (+ скилл для Claude Code) для **сборки и публикации воронок Telegram-ботов** в сервисе [zaytsv `/bots`](https://zaytsv.ru/bots): из текстового описания → валидный граф сценария → заливка и публикация через API.
 
-- 🤖 **14 инструментов сборки/публикации**: `list_bots`, `list_graphs`, `get_graph`, `create_graph`, `update_graph`, `dry_run`, `publish_graph`, `import_funnel`, `list_templates`, `create_graph_from_template`, `clone_graph`, `rename_graph`, `set_active_graph`, `delete_graph` (+ `setup`/`set_token`).
+- 🤖 **15 инструментов сборки/публикации**: `list_bots`, `list_graphs`, `list_channels`, `get_graph`, `create_graph`, `update_graph`, `dry_run`, `publish_graph`, `import_funnel`, `list_templates`, `create_graph_from_template`, `clone_graph`, `rename_graph`, `set_active_graph`, `delete_graph` (+ `setup`/`set_token`).
 - 🧠 **Скилл `build-bot-funnel`**: учит агента собирать корректный граф (типы узлов, ветки, кнопки, задержки) и проверять его перед публикацией.
 - 📦 **Без зависимостей** — чистый Node ≥18, ставится и запускается сразу.
 
@@ -83,6 +83,7 @@ MCP-сервер (+ скилл для Claude Code) для **сборки и пу
 | `set_token` | сохранить присланный токен `zmcp_…` (без env/рестарта) |
 | `list_bots` | список ботов |
 | `list_graphs(botId)` | графы (сценарии) бота |
+| `list_channels(botId)` | каналы/группы, подключённые к боту (chatId для условия SUBSCRIBED) |
 | `get_graph(graphId)` | получить граф |
 | `create_graph(botId, name)` | создать пустой граф (DRAFT) |
 | `update_graph(graphId, graph\|nodes,edges)` | залить узлы/рёбра (PUT) |

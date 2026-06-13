@@ -21,7 +21,7 @@ import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
 
-const VERSION = "0.4.1";
+const VERSION = "0.4.2";
 const BASE = (process.env.ZAYTSV_BASE_URL || "https://zaytsv.ru").replace(/\/+$/, "");
 const CONFIG_DIR = path.join(os.homedir(), ".zaytsv-bot-graph");
 const TOKEN_FILE = path.join(CONFIG_DIR, "token");
@@ -102,6 +102,7 @@ const TOOLS = [
   { name: "set_token", description: "Сохранить персональный токен (zmcp_...), который пользователь создал на /bots/mcp-tokens. Применяется сразу, без рестарта.", inputSchema: { type: "object", properties: { token: { type: "string", description: "Секрет токена, начинается с zmcp_" } }, required: ["token"] } },
   { name: "list_bots", description: "Список ботов пользователя (id, имя, статус).", inputSchema: { type: "object", properties: {} } },
   { name: "list_graphs", description: "Список графов (сценариев) бота.", inputSchema: { type: "object", properties: { botId: { type: "string" } }, required: ["botId"] } },
+  { name: "list_channels", description: "Список каналов/групп, подключённых к боту (chatId, title, type, статус бота, дата). chatId — числовой id для условия SUBSCRIBED («Подписан на канал»).", inputSchema: { type: "object", properties: { botId: { type: "string" } }, required: ["botId"] } },
   { name: "get_graph", description: "Получить граф целиком по graphId.", inputSchema: { type: "object", properties: { graphId: { type: "string" } }, required: ["graphId"] } },
   { name: "create_graph", description: "Создать пустой граф (DRAFT) в боте. Возвращает граф с id.", inputSchema: { type: "object", properties: { botId: { type: "string" }, name: { type: "string" } }, required: ["botId", "name"] } },
   { name: "update_graph", description: "Залить узлы/рёбра в граф (PUT). Принимает graph-контейнер или nodes/edges.", inputSchema: { type: "object", properties: { graphId: { type: "string" }, graph: { type: "object" }, nodes: { type: "array" }, edges: { type: "array" }, canvasMeta: { type: "object" }, name: { type: "string" } }, required: ["graphId"] } },
@@ -144,6 +145,7 @@ async function handleCall(params) {
     }
     case "list_bots": return okResult(await api("/api/tg/bots"));
     case "list_graphs": return okResult(await api(`/api/tg/bots/${a.botId}/graphs`));
+    case "list_channels": return okResult(await api(`/api/tg/bots/${a.botId}/linked-chats`));
     case "get_graph": return okResult(await api(`/api/tg/graphs/${a.graphId}`));
     case "create_graph": return okResult(await api(`/api/tg/bots/${a.botId}/graphs`, { method: "POST", body: { name: a.name } }));
     case "update_graph": {

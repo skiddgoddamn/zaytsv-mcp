@@ -92,7 +92,7 @@
 | `EMAIL` | `EQUALS`, `CONTAINS`, `NOT_EMPTY`, `EMPTY` | `value` | email из профиля |
 | `PHONE` | `EQUALS`, `CONTAINS`, `NOT_EMPTY`, `EMPTY` | `value` | телефон из профиля |
 | `USERNAME` | `EQUALS`, `CONTAINS` | `value` | @username пользователя Telegram |
-| `SUBSCRIBED` | `SUBSCRIBED`, `NOT_SUBSCRIBED` | `key` — **числовой** id канала/группы (напр. `-1001234567890`) | подписан ли пользователь на канал бота |
+| `SUBSCRIBED` | `SUBSCRIBED`, `NOT_SUBSCRIBED` | `key` — **числовой** id канала/группы (напр. `-1001234567890`); узнать числовой id подключённых каналов: `list_channels(botId)` | подписан ли пользователь на канал бота |
 | `LINK_CLICKED` | `CLICKED`, `NOT_CLICKED` | `key` — **`id` узла-шага** с отслеживаемой URL-кнопкой (тот же UUID, что у `SEND_MESSAGE`) | кликал ли пользователь по ссылке этого шага |
 | `CURRENT_DATE` | `BEFORE`, `AFTER`, `EQUALS` | `value` — дата `YYYY-MM-DD` | сегодняшнюю дату (МСК) |
 | `CURRENT_TIME` | `BETWEEN` | `value`, `value2` — время `HH:mm` | текущее время в интервале (через полночь — если `value`>`value2`) |
