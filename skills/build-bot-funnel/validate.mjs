@@ -77,12 +77,13 @@ for (const n of nodes) {
   if (!n || !n.id) { errors.push(`Узел без id: ${JSON.stringify(n).slice(0, 80)}`); continue; }
   if (ids.has(n.id)) errors.push(`Дубль id узла: ${n.id}`);
   ids.add(n.id);
-  if (!UUID_RE.test(n.id)) warns.push(`id узла не UUID (бэкенд десериализует UUID): ${n.id} «${n.config?._title || n.type}»`);
+  if (!UUID_RE.test(n.id)) errors.push(`id узла не UUID — бэкенд десериализует UUID, PUT даст HTTP 400: ${n.id} «${n.config?._title || n.type}»`);
 }
 const edgeIds = new Set();
 for (const e of edges) {
   if (e.id && edgeIds.has(e.id)) errors.push(`Дубль id ребра: ${e.id}`);
   if (e.id) edgeIds.add(e.id);
+  if (!e.id || !UUID_RE.test(e.id)) errors.push(`id ребра не UUID — бэкенд десериализует UUID, PUT даст HTTP 400: ${e.id}`);
   if (!ids.has(e.sourceNodeId)) errors.push(`Висячее ребро ${e.id}: нет sourceNodeId ${e.sourceNodeId}`);
   if (!ids.has(e.targetNodeId)) errors.push(`Висячее ребро ${e.id}: нет targetNodeId ${e.targetNodeId}`);
 }
@@ -119,6 +120,28 @@ for (const n of nodes) {
           else { try { new RegExp(c.regex); } catch (e) { errors.push(`SEND_BAD_REGEX: ${who} — ${e.message}.`); } }
         }
       }
+      // Кнопки-выборы: если от кнопки идёт ребро btn_N, value ДОЛЖЕН быть пустым —
+      // бот сам генерит callback_data n:<id>:<idx>; непустой value → нажатие даёт NO_MATCH.
+      {
+        const btnIdx = new Set(
+          edges.filter((e) => e.sourceNodeId === n.id && /^btn_\d+$/.test(String(e.sourceHandle || "")))
+               .map((e) => Number(String(e.sourceHandle).slice(4)))
+        );
+        (Array.isArray(c.buttons) ? c.buttons : []).flat().forEach((b, i) => {
+          if (!b) return;
+          if (String(b.kind) === "CALLBACK") {
+            const hasVal = !blank(b.value);
+            if (hasVal && btnIdx.has(i)) errors.push(`BTN_VALUE_WITH_EDGE: ${who} — кнопка-выбор #${i} («${b.text || ""}») имеет ребро btn_${i} и непустой value «${b.value}»; оставь value пустым, иначе нажатие даст NO_MATCH.`);
+            else if (hasVal) warns.push(`${who}: у CALLBACK-кнопки #${i} непустой value «${b.value}» без ребра btn_${i} — это legacy-кнопка под TRIGGER_CALLBACK; для кнопки-выбора нужен пустой value + ребро btn_${i}.`);
+          }
+          if (b.color) {
+            const cc = String(b.color).trim();
+            const okColor = ["", "primary", "success", "danger"].includes(cc.toLowerCase())
+              || ["#2EA6FF", "#34C759", "#FF3B30"].includes(cc.toUpperCase());
+            if (!okColor) warns.push(`${who}: стиль кнопки #${i} «${b.color}» Telegram не рендерит — только ""(дефолт)/primary(#2EA6FF)/success(#34C759)/danger(#FF3B30).`);
+          }
+        });
+      }
       break;
     }
     case "SEND_PHOTO":
@@ -143,9 +166,10 @@ for (const n of nodes) {
       if (blank(c.url) || !/^https?:\/\//.test(c.url)) errors.push(`${who}: url обязателен и http(s)://.`);
       break;
     case "DELAY":
-      if (c.kind === "FIXED") { if (!(Number(c.durationSec) > 0)) errors.push(`${who}: FIXED требует durationSec>0.`); }
-      else if (c.kind === "UNTIL") { if (blank(c.isoDate) || blank(c.time)) errors.push(`${who}: UNTIL требует isoDate и time.`); }
-      else errors.push(`${who}: kind ∈ {FIXED,UNTIL}.`);
+      if (c.kind === "FIXED") { if (!(Number(c.durationSec) > 0) && !(Number(c.duration) > 0)) errors.push(`${who}: FIXED требует durationSec>0 (или duration>0 + unit MINUTES|HOURS|DAYS).`); }
+      else if (c.kind === "TOMORROW") { if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(c.time || ""))) errors.push(`${who}: TOMORROW требует time = HH:mm.`); }
+      else if (c.kind === "UNTIL") { if (blank(c.isoTimestamp)) errors.push(`${who}: UNTIL требует isoTimestamp (ISO-8601 UTC). isoDate+time рантайм НЕ читает.`); }
+      else errors.push(`${who}: kind ∈ {FIXED,TOMORROW,UNTIL}.`);
       break;
     case "BRANCH":
       if (!Array.isArray(c.cases) || c.cases.length === 0) errors.push(`${who}: нужен хотя бы один case.`);

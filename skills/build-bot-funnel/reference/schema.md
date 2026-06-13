@@ -22,9 +22,10 @@
 
 ## Ребро (TgEdge) — «стрелка»
 ```json
-{ "id": "<uuid|строка>", "sourceNodeId": "<uuid>", "sourceHandle": "next", "targetNodeId": "<uuid>" }
+{ "id": "<uuid>", "sourceNodeId": "<uuid>", "sourceHandle": "next", "targetNodeId": "<uuid>" }
 ```
 `sourceHandle` — какой выход узла используется (см. ниже).
+- `id`, `sourceNodeId`, `targetNodeId` — **валидные UUID** (бэкенд десериализует их как `java.util.UUID`; короткая строка вроде `"m1"` → HTTP 400 при заливке). `id` уникален среди рёбер.
 
 ## Типы узлов (NodeType) и их config
 
@@ -40,11 +41,13 @@
   { "_title": "Заголовок узла", "parseMode": "PLAIN"|"HTML"|"MARKDOWN",
     "text": "Текст сообщения",
     "cards": [ { "id": "c1", "type": "text", "text": "Текст сообщения" } ],
-    "buttons": [ [ { "text": "Кнопка", "kind": "CALLBACK"|"URL", "value": "data|url", "track": true } ] ] }
+    "buttons": [ [ { "text": "Кнопка", "kind": "CALLBACK"|"URL", "value": "<url для URL; ПУСТО для CALLBACK>", "color": "", "track": true } ] ] }
   ```
   ВСЕГДА заполняй и `text`, и `cards[0].text` одинаково. `buttons` — массив рядов (каждый ряд — массив кнопок).
   - `parseMode:"HTML"` (дефолт редактора) — текст должен быть **безопасным Telegram-HTML**: разрешены только `b,strong,i,em,u,ins,s,strike,del,code,pre,a[href],tg-spoiler,br`. Любой другой тег/атрибут → ошибка публикации `HTML_NOT_SAFE`. Не уверен — ставь `PLAIN`.
-  - **Кнопки-ссылки (`kind:"URL"`)** могут иметь `"track": true` — клики считаются, и на такой шаг можно сослаться из условия `LINK_CLICKED` (см. ниже). У `CALLBACK`-кнопок флаг не нужен.
+  - **Кнопки-выборы (`kind:"CALLBACK"`)**: `value` ОСТАВЛЯЙ ПУСТЫМ (`""`). Бот сам сгенерит `callback_data` вида `n:<id узла>:<индекс>`, а переход задаётся ребром `btn_N` от кнопки. **Непустой `value`** трактуется как legacy-`callback_data` для отдельного узла `TRIGGER_CALLBACK` (у такой кнопки ребра `btn_N` быть не должно) — если поставить `value` обычной кнопке-выбору, переход по `btn_N` **сломается** (нажатие → `NO_MATCH`).
+  - **Кнопки-ссылки (`kind:"URL"`)**: `value` = URL. Могут иметь `"track": true` — клики считаются, и на такой шаг можно сослаться из условия `LINK_CLICKED` (см. ниже).
+  - **`color`** (опционально, и у CALLBACK, и у URL) — только стили, которые рендерит Telegram (как в основном боте / pengrad `ButtonStyle`): `""`=по умолчанию, `"#2EA6FF"`=primary (синий), `"#34C759"`=success (зелёный), `"#FF3B30"`=danger (красный). Других цветов нет.
   - **Режим «Вопрос» (`awaitReply: true`)** — сообщение задаёт вопрос и ждёт ответ (паркуется как `ASK_QUESTION`). Доп. поля: `"saveTo":"name"` (обязателен, `[a-z_][a-z0-9_]{0,63}`), `"inputKind":"TEXT"|"PHOTO"|"DOCUMENT"|"CONTACT"|"LOCATION"`, `"validator":"ANY"|"PHONE"|"EMAIL"|"REGEX"`, `"regex":"..."`, `"retryText":"..."`, `"maxAttempts":3`. Выходы — `valid` / `invalid` (как у `ASK_QUESTION`), плюс `btn_N` для кнопок.
 - `SEND_PHOTO` — `{ "photoUrl": "https://...", "caption": "подпись (необязательно, ≤1024)" }`
 
@@ -52,12 +55,13 @@
 - `CONDITION` — проверка условий, выходы `yes` / `no`. `{ "match":"ALL"|"ANY", "conditions":[ { "kind":"...", "op":"...", "key":"...", "value":"..." } ] }`. `match:"ALL"` — все условия истинны; `"ANY"` — хотя бы одно. Полный список `kind`/`op`/полей — в разделе [«Условия CONDITION»](#условия-condition).
 - `BRANCH` — `{ "cases":[ {"id":"c1","label":"...","expression":"var.x=='a'"} ], "hasDefault": false, "abTest": false }`. Выходы: `case_<id>` (+ `default`).
 - `ASK_QUESTION` — вопрос со сбором ответа. `{ "promptText":"...","saveTo":"name","inputKind":"TEXT"|"PHOTO"|"DOCUMENT"|"CONTACT"|"LOCATION","validator":"ANY"|"PHONE"|"EMAIL"|"REGEX","regex":"...","retryText":"...","maxAttempts":3 }`. `inputKind` (по умолчанию `TEXT`) — что ждём в ответ (`CONTACT` → телефон, `LOCATION` → `lat,lon`, `PHOTO`/`DOCUMENT` → file_id). Выходы `valid` / `invalid`.
-- `END` — `{}` (конец ветки).
+- `END` — `{}` (конец ветки). **Не добавляй `END`**: ветка и так завершается на узле без исходящих рёбер; явный «конец сценария» бесполезен и убран из палитры редактора. Тип оставлен лишь для совместимости со старыми графами.
 
 ### Тайминги
-- `DELAY` — пауза:
-  - фиксированная: `{ "kind":"FIXED", "durationSec": 86400 }`
-  - до даты/времени: `{ "kind":"UNTIL", "isoDate":"2026-06-25", "time":"18:00" }`
+- `DELAY` — пауза. Три вида (`kind`):
+  - **`FIXED`** («Отправить через»): `{ "kind":"FIXED", "durationSec": 86400 }` — `durationSec` в **секундах** (60 = 1 мин, 3600 = 1 час, 86400 = 1 сутки). Редактор также пишет `{ "kind":"FIXED", "duration": 24, "unit":"MINUTES"|"HOURS"|"DAYS" }` (минуты/часы/дни — чтобы не вбивать большие числа). Для генерации проще `durationSec`.
+  - **`TOMORROW`** («Отправить завтра»): `{ "kind":"TOMORROW", "time":"18:00" }` — завтра в указанное время `HH:mm` (МСК), относительно момента, когда пользователь дошёл до узла.
+  - **`UNTIL`** («Отправить в»): `{ "kind":"UNTIL", "isoTimestamp":"2026-06-25T15:00:00Z" }` — конкретный момент в ISO-8601 (UTC). ⚠️ Рантайм читает только `isoTimestamp`; пары `isoDate`+`time` НЕ работают.
 - `SCHEDULE` — `{ "isoDate":"2026-06-25", "time":"18:00", "timezone":"Europe/Moscow" }`. Выходы `scheduled` / `past`.
 
 ### Состояние / действия
