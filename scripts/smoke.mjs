@@ -33,9 +33,10 @@ function finish() {
   const ok =
     init?.result?.serverInfo?.name === "zaytsv-bot-graph" &&
     Array.isArray(tools) &&
-    tools.length === 18 &&
+    tools.length === 19 &&
     toolNames.includes("list_channels") &&
-    toolNames.includes("edit_graph_live");
+    toolNames.includes("edit_graph_live") &&
+    toolNames.includes("copy_graph");
   child.kill();
   if (!ok) {
     console.error("SMOKE FAIL:", JSON.stringify({ init, tl }, null, 2));
