@@ -14,7 +14,7 @@
   },
   "engines": { "node": ">=18" },
   "keywords": ["mcp", "telegram", "bot", "funnel", "zaytsv", "claude-code", "model-context-protocol"],
-  "repository": { "type": "git", "url": "https://github.com/skiddgoddamn/zaytsv-bot-graph-mcp.git" },
+  "repository": { "type": "git", "url": "git+https://github.com/skiddgoddamn/zaytsv-bot-graph-mcp.git" },
   "homepage": "https://zaytsv.ru/bots",
   "license": "MIT"
 }
