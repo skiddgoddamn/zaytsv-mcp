@@ -36,7 +36,7 @@
 - `BRANCH`: ≥1 case (`BRANCH_NO_CASES`); вне `abTest` — непустое валидное `expression` (`BRANCH_EMPTY_EXPR`/`BRANCH_BAD_EXPR`) и подключённое ребро `case_<id>` (`BRANCH_CASE_UNCONNECTED`; `disabled:true` — если ветка намеренно пустая). В `abTest:true` рёбра нужны только у первых двух case.
 - `CONDITION`: `match` ∈ {ALL, ANY} (`CONDITION_BAD_MATCH`); ≥1 элемент в `conditions` (`CONDITION_EMPTY`). Для `kind:"TAG"` — `value` ∈ `[a-z0-9_-]{1,64}` (`CONDITION_BAD_TAG`); для `kind:"VARIABLE"` — `key` ∈ `[a-z_][a-z0-9_]{0,63}` (`CONDITION_BAD_KEY`). Остальные `kind` (UTM/NAME/EMAIL/PHONE/USERNAME/SUBSCRIBED/LINK_CLICKED/CURRENT_*/DAY_OF_WEEK) бэкенд проверяет в рантайме — некорректный `kind`/`op`, нечисловой `key` у `SUBSCRIBED` или `key` у `LINK_CLICKED` без отслеживаемой кнопки молча дают `false` (выход `no`), публикацию не блокируют. Список `kind`/`op` — в schema.md.
 - `CALL_WEBHOOK`: `url` обязателен (`WEBHOOK_NO_URL`), http(s):// (`WEBHOOK_BAD_SCHEME`).
-- `DELAY`: `kind` ∈ {FIXED,UNTIL} (`DELAY_BAD_KIND`); `FIXED` — `durationSec>0` (`DELAY_BAD_DURATION`).
+- `DELAY`: `kind` ∈ {FIXED,UNTIL,TOMORROW} (`DELAY_BAD_KIND`). `FIXED` — `durationSec>0` (секунды) ИЛИ `duration>0` (+`unit` ∈ {MINUTES,HOURS,DAYS}), иначе `DELAY_BAD_DURATION`. `TOMORROW` — `time` = `HH:mm` (`DELAY_BAD_TIME`). `UNTIL` — `isoTimestamp` (ISO-8601 UTC; рантайм читает только его, не `isoDate`+`time`).
 - `SET_VARIABLE`: `key` ∈ `[a-z_][a-z0-9_]{0,63}` (`VAR_BAD_KEY`). `ADD_TAG`/`REMOVE_TAG`: `tag` ∈ `[a-z0-9_-]{1,64}` (`TAG_BAD_NAME`).
 - `FORMULA`: `expression` непустой (`FORMULA_NO_EXPRESSION`); `saveTo` ∈ var-формат (`FORMULA_BAD_SAVE_TO`).
 - `SCHEDULE`: `isoDate` = валидная `YYYY-MM-DD` (`SCHEDULE_BAD_DATE`); `time` = `HH:mm` (`SCHEDULE_BAD_TIME`).
@@ -48,7 +48,8 @@
 ## Рёбра
 - `sourceNodeId` и `targetNodeId` должны указывать на существующие узлы (нет «висячих»).
 - `sourceHandle` должен соответствовать типу узла-источника (см. schema.md).
-- id узлов и рёбер — уникальны; id узлов — валидные UUID (Jackson десериализует `UUID`).
+- **Кнопка-выбор ↔ ребро `btn_N`**: у `CALLBACK`-кнопки, от которой идёт ребро `btn_N`, `value` ДОЛЖЕН быть пустым (`""`). Тогда бот рендерит навигационный `callback_data` `n:<id узла>:<индекс>` и маршрутизирует по `btn_N`. Непустой `value` рендерится как есть, не матчит навигационный формат → нажатие уходит в `NO_MATCH` (кнопка «не работает»). Непустой `value` уместен только для legacy-кнопки под отдельный узел `TRIGGER_CALLBACK` (без ребра `btn_N`).
+- id узлов и рёбер — уникальны и **оба должны быть валидными UUID**: Jackson десериализует и `TgNode.id`, и `TgEdge.id`/`sourceNodeId`/`targetNodeId` как `java.util.UUID`. Короткая строка (`"m1"`, `"e1"`) → весь PUT падает с HTTP 400 (generic, без тела).
 
 ## Жизненный цикл
 - Статусы графа: `DRAFT` / `PUBLISHED`. Публикация заменяет активную опубликованную версию.
