@@ -5,11 +5,19 @@
 [![node](https://img.shields.io/node/v/zaytsv-bot-graph-mcp.svg)](https://nodejs.org)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-MCP-сервер (+ скилл для Claude Code) для **сборки и публикации воронок Telegram-ботов** в сервисе [zaytsv `/bots`](https://zaytsv.ru/bots): из текстового описания → валидный граф сценария → заливка и публикация через API.
+MCP-сервер (+ скилл для Claude Code) для **сборки и публикации воронок/автоматизаций ботов (Telegram, MAX и Instagram)** в сервисе [zaytsv `/bots`](https://zaytsv.ru/bots): из текстового описания → валидный граф сценария → заливка и публикация через API.
 
-- 🤖 **15 инструментов сборки/публикации**: `list_bots`, `list_graphs`, `list_channels`, `get_graph`, `create_graph`, `update_graph`, `dry_run`, `publish_graph`, `import_funnel`, `list_templates`, `create_graph_from_template`, `clone_graph`, `rename_graph`, `set_active_graph`, `delete_graph` (+ `setup`/`set_token`).
-- 🧠 **Скилл `build-bot-funnel`**: учит агента собирать корректный граф (типы узлов, ветки, кнопки, задержки) и проверять его перед публикацией.
+- 🤖 **20 инструментов сборки/публикации**: `list_bots`, `list_graphs`, `list_channels`, `get_graph`, `create_graph`, `update_graph`, `edit_graph_live`, `patch_graph`, `dry_run`, `publish_graph`, `import_funnel`, `list_templates`, `create_graph_from_template`, `clone_graph`, `copy_graph`, `rename_graph`, `set_active_graph`, `delete_graph` (+ `setup`/`set_token`).
+- 🧠 **Скилл `build-bot-funnel`**: учит агента собирать корректный граф (типы узлов, ветки, кнопки, задержки) и проверять его перед публикацией. Поддерживает Telegram, MAX и Instagram.
 - 📦 **Без зависимостей** — чистый Node ≥18, ставится и запускается сразу.
+
+### Поддерживаемые платформы
+
+| Платформа | Онбординг | Триггеры входа | Ограничения |
+|---|---|---|---|
+| **Telegram** | Токен бота (BotFather) | `/start`, команды, callback, текст, рассылки | Полный функционал |
+| **MAX** | Токен бота (MAX Developer) | Команды, callback, текст | Без SUBSCRIBED/reply-клавиатур (мягкие предупреждения) |
+| **Instagram** | OAuth в `/growth` (без токена) | Комментарий/Direct/Ответ на историю/Упоминание | Ограниченный набор узлов; DELAY ≤ 24ч; ASK_QUESTION только TEXT/EMAIL/PHONE/NUMBER; без рассылок |
 
 ---
 
@@ -108,7 +116,12 @@ MCP-сервер (+ скилл для Claude Code) для **сборки и пу
 Локальная проверка графа перед заливкой:
 
 ```bash
+# Telegram (по умолчанию)
 node skills/build-bot-funnel/validate.mjs path/to/import.json
+# Instagram-бот
+node skills/build-bot-funnel/validate.mjs path/to/import.json --platform=INSTAGRAM
+# MAX-бот
+node skills/build-bot-funnel/validate.mjs path/to/import.json --platform=MAX
 ```
 
 ---

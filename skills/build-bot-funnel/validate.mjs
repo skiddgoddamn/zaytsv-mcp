@@ -1,12 +1,23 @@
 #!/usr/bin/env node
 // Оффлайн-валидатор графа zaytsv-bot-graph. Без зависимостей.
-// Использование:  node validate.mjs <path/to/import.json>
+// Использование:  node validate.mjs <path/to/import.json> [--platform=TELEGRAM|MAX|INSTAGRAM]
 // Повторяет ключевые правила GraphValidator + cardsToLegacy редактора.
 
 import { readFileSync } from "node:fs";
 
 const path = process.argv[2];
-if (!path) { console.error("Usage: node validate.mjs <import.json>"); process.exit(2); }
+if (!path) { console.error("Usage: node validate.mjs <import.json> [--platform=TELEGRAM|MAX|INSTAGRAM]"); process.exit(2); }
+
+// Разобрать --platform=...  (регистронезависимо)
+let platform = "TELEGRAM";
+for (const arg of process.argv.slice(3)) {
+  const m = arg.match(/^--platform=([A-Za-z]+)$/);
+  if (m) platform = m[1].toUpperCase();
+}
+if (!["TELEGRAM", "MAX", "INSTAGRAM"].includes(platform)) {
+  console.error(`❌ Неизвестная платформа: ${platform}. Допустимые: TELEGRAM, MAX, INSTAGRAM`);
+  process.exit(2);
+}
 
 let g;
 try { g = JSON.parse(readFileSync(path, "utf8")); }
@@ -276,9 +287,79 @@ function dfs(u, pathHasWaitAtEdgeInto) {
 }
 for (const n of nodes) if (!color[n.id]) dfs(n.id);
 
+// ============================================================
+// --- IG-специфические проверки (только для INSTAGRAM) ---
+// Зеркало GraphValidator.platformErrors() (Java).
+// IG_ALLOWED_NODES: TRIGGER_IG_COMMENT, TRIGGER_IG_DM, TRIGGER_IG_STORY_REPLY,
+//   TRIGGER_IG_STORY_MENTION, SEND_MESSAGE, SEND_PHOTO, BRANCH, CONDITION,
+//   SET_VARIABLE, ADD_TAG, REMOVE_TAG, FORMULA, ASK_QUESTION, DELAY, END.
+// IG_ALLOWED_INPUT_KINDS: TEXT, EMAIL, PHONE, NUMBER.
+// IG_MAX_DELAY_SECONDS: 86400 (24 часа).
+// ============================================================
+
+if (platform === "INSTAGRAM") {
+  const IG_ALLOWED_NODES = new Set([
+    "TRIGGER_IG_COMMENT", "TRIGGER_IG_DM",
+    "TRIGGER_IG_STORY_REPLY", "TRIGGER_IG_STORY_MENTION",
+    "SEND_MESSAGE", "SEND_PHOTO",
+    "BRANCH", "CONDITION", "SET_VARIABLE",
+    "ADD_TAG", "REMOVE_TAG", "FORMULA",
+    "ASK_QUESTION", "DELAY", "END",
+  ]);
+  const IG_ALLOWED_INPUT_KINDS = new Set(["TEXT", "EMAIL", "PHONE", "NUMBER"]);
+  const IG_MAX_DELAY_SEC = 86400; // 24h messaging window
+
+  function igDelaySeconds(c) {
+    // Зеркало GraphValidator.igDelaySeconds():
+    // только FIXED считаем конкретно; TOMORROW/UNTIL — всегда > 24h (Long.MAX_VALUE)
+    if (!c || c.kind !== "FIXED") return Infinity;
+    // legacy: durationSec
+    if (typeof c.durationSec === "number" && c.durationSec > 0) return c.durationSec;
+    // new format: duration + unit
+    if (typeof c.duration === "number" && c.duration > 0) {
+      const u = String(c.unit || "");
+      if (u === "MINUTES") return c.duration * 60;
+      if (u === "HOURS")   return c.duration * 3600;
+      if (u === "DAYS")    return c.duration * 86400;
+      return c.duration; // assume seconds
+    }
+    return Infinity; // malformed FIXED — treat as unbounded (block it)
+  }
+
+  for (const n of nodes) {
+    const type = n.type;
+    const c = n.config || {};
+    const who = `«${c._title || n.id}» (${type})`;
+    if (!type) continue;
+
+    // 1) Проверка allowlist
+    if (!IG_ALLOWED_NODES.has(type)) {
+      errors.push(`IG_NODE_UNSUPPORTED: ${who} — узел «${type}» недоступен для Instagram-бота`);
+      continue; // дальнейшие проверки для этого узла бессмысленны
+    }
+
+    // 2) ASK_QUESTION: inputKind должен быть из IG_ALLOWED_INPUT_KINDS
+    if (type === "ASK_QUESTION") {
+      const kind = c.inputKind;
+      if (kind != null && !IG_ALLOWED_INPUT_KINDS.has(String(kind).toUpperCase())) {
+        errors.push(`IG_INPUT_UNSUPPORTED: ${who} — В Instagram нельзя запросить «${kind}» — только TEXT/EMAIL/PHONE/NUMBER`);
+      }
+    }
+
+    // 3) DELAY: не более 24h (только для FIXED; TOMORROW/UNTIL всегда > 24h)
+    if (type === "DELAY") {
+      const sec = igDelaySeconds(c);
+      if (sec > IG_MAX_DELAY_SEC) {
+        errors.push(`IG_DELAY_OVER_24H: ${who} — задержка больше 24ч недопустима для Instagram (24-часовое окно доставки)`);
+      }
+    }
+  }
+}
+
 // --- отчёт ---
 const byType = {};
 nodes.forEach((n) => (byType[n.type] = (byType[n.type] || 0) + 1));
+console.log(`Платформа: ${platform}`);
 console.log(`Граф: ${nodes.length} узлов, ${edges.length} рёбер, ${triggers.length} триггеров`);
 console.log(`Типы: ${JSON.stringify(byType)}`);
 if (warns.length) { console.log(`\n⚠️  Предупреждения (${warns.length}):`); warns.forEach((w) => console.log("  • " + w)); }

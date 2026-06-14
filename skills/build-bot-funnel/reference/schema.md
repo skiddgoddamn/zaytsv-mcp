@@ -30,10 +30,21 @@
 ## Типы узлов (NodeType) и их config
 
 ### Триггеры (точки входа, корневые)
+
+#### Telegram / MAX
 - `TRIGGER_COMMAND` — `{ "isRoot": true, "command": "start" }` (команда без `/`). Первый — с `isRoot:true`.
 - `TRIGGER_CALLBACK` — `{ "matchMode": "EQUALS"|"STARTS_WITH", "value": "<callback_data>" }`
 - `TRIGGER_TEXT` — `{ "matchMode": "ANY"|"EQUALS"|"CONTAINS"|"REGEX", "value": "..." }`
 - `BROADCAST_FILTER` — режим рассылки (если есть — единственный триггер).
+
+#### Instagram (только для IG-ботов)
+IG-боты не поддерживают команды (`/start`). Вход — через взаимодействие с контентом или директ:
+- `TRIGGER_IG_DM` — `{ "isRoot": true }` — входящее сообщение в Instagram Direct. Это дефолтный триггер нового IG-графа (бэкенд сеет его при создании).
+- `TRIGGER_IG_COMMENT` — `{ "isRoot": true }` — комментарий к посту или Reel бота. Опционально: фильтрация по ключевому слову (поддерживается бэкендом, уточни у пользователя, если нужно).
+- `TRIGGER_IG_STORY_REPLY` — `{ "isRoot": true }` — ответ на историю бота.
+- `TRIGGER_IG_STORY_MENTION` — `{ "isRoot": true }` — упоминание бота в истории подписчика.
+
+Для всех IG-триггеров реакция бота отправляется через Instagram Messaging API в течение **24-часового окна** после последнего входящего действия пользователя.
 
 ### Сообщения
 - `SEND_MESSAGE` —
@@ -105,6 +116,44 @@
 **`LINK_CLICKED`** проверяет факт клика по URL-кнопке конкретного шага. Чтобы условие работало: у нужного `SEND_MESSAGE` хотя бы одна кнопка `kind:"URL"` с `"track": true`, а в условии `key` = `id` этого узла-шага. Клик фиксируется через публичный редирект бота, поэтому условие имеет смысл ставить **после** `DELAY`/`ASK_QUESTION` (дай пользователю время кликнуть).
 
 > **Платформа MAX.** Боты конструктора умеют работать и в мессенджере MAX. Там не поддерживаются `SUBSCRIBED`/`NOT_SUBSCRIBED` (нет членства в каналах) и reply-клавиатуры; публикация такого графа на MAX-бот вернёт **мягкие предупреждения** (не блокирует). Для Telegram-ботов всё работает как описано.
+
+## Платформа Instagram
+
+IG-боты подключаются через OAuth в разделе **«Инструменты роста»** (`/growth`) — **без вставки токена вручную**; у IG нет персонального бот-токена. После OAuth бот получает доступ к Messaging API через привязанный Instagram Business/Creator-аккаунт.
+
+### Разрешённые типы узлов для IG-ботов
+
+Только следующие (всё остальное — ошибка `IG_NODE_UNSUPPORTED` при публикации):
+
+| Тип | Доступен в IG |
+|---|---|
+| `TRIGGER_IG_COMMENT`, `TRIGGER_IG_DM`, `TRIGGER_IG_STORY_REPLY`, `TRIGGER_IG_STORY_MENTION` | ✅ (триггеры входа) |
+| `SEND_MESSAGE`, `SEND_PHOTO` | ✅ |
+| `BRANCH`, `CONDITION` | ✅ |
+| `SET_VARIABLE`, `ADD_TAG`, `REMOVE_TAG`, `FORMULA` | ✅ |
+| `ASK_QUESTION` | ✅ (с ограничениями — см. ниже) |
+| `DELAY` | ✅ (не более 24ч — см. ниже) |
+| `END` | ✅ |
+| `TRIGGER_COMMAND`, `TRIGGER_CALLBACK`, `TRIGGER_TEXT` | ❌ |
+| `BROADCAST_FILTER` (рассылки) | ❌ |
+| `SCHEDULE`, `ACTIONS`, `CALL_WEBHOOK`, `AI_REPLY`, `PAYMENT_LINK` | ❌ |
+
+### Ограничения IG-ботов
+
+- **Нет команд** — вход только через `TRIGGER_IG_COMMENT` / `TRIGGER_IG_DM` / `TRIGGER_IG_STORY_REPLY` / `TRIGGER_IG_STORY_MENTION`. `/start` и другие команды не поддерживаются.
+- **Нет рассылок** — `BROADCAST_FILTER` недоступен.
+- **DELAY не более 24 часов** — Instagram доставляет сообщения только в течение 24-часового окна после последнего входящего действия (`IG_DELAY_OVER_24H`). `DELAY` с `kind=TOMORROW` или `kind=UNTIL` блокируются (они заведомо > 24ч). `kind=FIXED` с `durationSec > 86400` тоже блокируется.
+- **`ASK_QUESTION`** — `inputKind` ограничен: только `TEXT`, `EMAIL`, `PHONE`, `NUMBER` (`IG_INPUT_UNSUPPORTED`). Нельзя запрашивать `CONTACT` (кнопка «Поделиться номером» недоступна в IG), `LOCATION`, `PHOTO`, `DOCUMENT`.
+- **Нет reply-клавиатур** — кнопки IG работают как inline (URL или Deep Link); стиль кнопок ограничен возможностями IG Messaging API.
+- **Нет SUBSCRIBED** — условие «подписан на канал» недоступно.
+
+### Оффлайн-проверка IG-графа
+
+```bash
+node validate.mjs graph.json --platform=INSTAGRAM
+```
+
+Ловит `IG_NODE_UNSUPPORTED`, `IG_DELAY_OVER_24H`, `IG_INPUT_UNSUPPORTED` — в дополнение ко всем обычным структурным проверкам.
 
 ## Кросс-платформенное копирование (Telegram ⇄ MAX)
 

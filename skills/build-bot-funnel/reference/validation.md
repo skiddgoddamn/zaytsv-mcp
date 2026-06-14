@@ -55,5 +55,47 @@
 - Статусы графа: `DRAFT` / `PUBLISHED`. Публикация заменяет активную опубликованную версию.
 - Перед публикацией полезно прогнать `dry_run` (kind `command`/`callback`/`text`) — поймать рантайм-проблемы стартовой ветки.
 
+## Платформенные правила — Instagram
+
+Источник: `GraphValidator.platformErrors()` (Java). Коды — жёсткие ошибки, **блокируют публикацию** (`publish_graph` вернёт `errors[]`).
+
+### `IG_NODE_UNSUPPORTED` — неподдерживаемый тип узла
+
+Каждый узел в графе (включая черновые/неподключённые) должен быть из IG-allowlist. Всё остальное → ошибка.
+
+Allowlist: `TRIGGER_IG_COMMENT`, `TRIGGER_IG_DM`, `TRIGGER_IG_STORY_REPLY`, `TRIGGER_IG_STORY_MENTION`, `SEND_MESSAGE`, `SEND_PHOTO`, `BRANCH`, `CONDITION`, `SET_VARIABLE`, `ADD_TAG`, `REMOVE_TAG`, `FORMULA`, `ASK_QUESTION`, `DELAY`, `END`.
+
+Не в allowlist: `TRIGGER_COMMAND`, `TRIGGER_CALLBACK`, `TRIGGER_TEXT`, `BROADCAST_FILTER`, `SCHEDULE`, `ACTIONS`, `CALL_WEBHOOK`, `AI_REPLY`, `PAYMENT_LINK` — и любой другой тип.
+
+> Бэкенд проверяет ВСЕ узлы, включая черновые (неподключённые), так как палитра редактора не даёт ставить неподдерживаемые узлы в IG-боте — поэтому их присутствие означает реальную ошибку (напр., импортированный/скопированный граф).
+
+### `IG_DELAY_OVER_24H` — задержка больше 24 часов
+
+Instagram доставляет сообщения только в течение **24 часов** после последнего входящего от пользователя.
+
+Правило (зеркало `igDelaySeconds()` в Java):
+- `kind != "FIXED"` (т.е. `TOMORROW` или `UNTIL`) → всегда ошибка (заведомо > 24ч).
+- `kind == "FIXED"`:
+  - `durationSec > 86400` → ошибка.
+  - `duration` (число) + `unit` → пересчёт: `MINUTES` × 60, `HOURS` × 3600, `DAYS` × 86400; если результат > 86400 → ошибка.
+  - `duration` без `unit` → считается в секундах; если > 86400 → ошибка.
+  - Отсутствует и `durationSec`, и `duration` (malformed FIXED) → ошибка (не разрешаем молча).
+
+### `IG_INPUT_UNSUPPORTED` — неподдерживаемый вид ответа
+
+У `ASK_QUESTION`, `inputKind` ограничен: только `TEXT`, `EMAIL`, `PHONE`, `NUMBER`.
+
+Не поддерживается: `CONTACT` (кнопка «Поделиться номером» недоступна в IG Messaging API), `LOCATION`, `PHOTO`, `DOCUMENT`.
+
+`inputKind == null` (не задан) — допустимо (дефолт = текст).
+
+---
+
 ## Локальная проверка
 `node validate.mjs <import.json>` повторяет ключевые проверки: пустые сообщения с учётом `cardsToLegacy`, висячие рёбра, дубли id, достижимость от триггеров, длину текста, HTML-безопасность (эвристика по тегам), режим «Вопрос» (`awaitReply`→`saveTo`/`regex`), конфиг `DELAY`/`SCHEDULE`/`FORMULA`/`ACTIONS`/`AI_REPLY`/`PAYMENT_LINK`/триггеров, условия `CONDITION` (вкл. `LINK_CLICKED` со ссылкой на отслеживаемый шаг). Гонять перед каждой заливкой.
+
+Для IG-ботов передавать `--platform=INSTAGRAM`:
+```bash
+node validate.mjs <import.json> --platform=INSTAGRAM
+```
+Добавляет проверки `IG_NODE_UNSUPPORTED`, `IG_DELAY_OVER_24H`, `IG_INPUT_UNSUPPORTED` поверх всех обычных.
