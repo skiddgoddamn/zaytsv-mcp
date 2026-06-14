@@ -5,15 +5,15 @@
 
 import { readFileSync } from "node:fs";
 
-const path = process.argv[2];
-if (!path) { console.error("Usage: node validate.mjs <import.json> [--platform=TELEGRAM|MAX|INSTAGRAM]"); process.exit(2); }
-
-// Разобрать --platform=...  (регистронезависимо)
+// Разобрать аргументы порядконезависимо: первый не-флаг = путь; --platform=... в любом месте
+let path = "";
 let platform = "TELEGRAM";
-for (const arg of process.argv.slice(3)) {
+for (const arg of process.argv.slice(2)) {
   const m = arg.match(/^--platform=([A-Za-z]+)$/);
-  if (m) platform = m[1].toUpperCase();
+  if (m) { platform = m[1].toUpperCase(); }
+  else if (!arg.startsWith("--") && !path) { path = arg; }
 }
+if (!path) { console.error("Usage: node validate.mjs <import.json> [--platform=TELEGRAM|MAX|INSTAGRAM]"); process.exit(2); }
 if (!["TELEGRAM", "MAX", "INSTAGRAM"].includes(platform)) {
   console.error(`❌ Неизвестная платформа: ${platform}. Допустимые: TELEGRAM, MAX, INSTAGRAM`);
   process.exit(2);
@@ -314,9 +314,9 @@ if (platform === "INSTAGRAM") {
     // только FIXED считаем конкретно; TOMORROW/UNTIL — всегда > 24h (Long.MAX_VALUE)
     if (!c || c.kind !== "FIXED") return Infinity;
     // legacy: durationSec
-    if (typeof c.durationSec === "number" && c.durationSec > 0) return c.durationSec;
+    if (typeof c.durationSec === "number") return c.durationSec;
     // new format: duration + unit
-    if (typeof c.duration === "number" && c.duration > 0) {
+    if (typeof c.duration === "number") {
       const u = String(c.unit || "");
       if (u === "MINUTES") return c.duration * 60;
       if (u === "HOURS")   return c.duration * 3600;
