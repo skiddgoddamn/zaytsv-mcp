@@ -353,6 +353,11 @@ if (platform === "INSTAGRAM") {
         errors.push(`IG_DELAY_OVER_24H: ${who} — задержка больше 24ч недопустима для Instagram (24-часовое окно доставки)`);
       }
     }
+
+    // 4) TRIGGER_IG_STORY_MENTION: keywords игнорируется — текста упоминания нет
+    if (type === "TRIGGER_IG_STORY_MENTION" && !blank(c.keywords)) {
+      warns.push(`${who}: TRIGGER_IG_STORY_MENTION не фильтруется по ключевым словам (у упоминания нет текста) — keywords игнорируется`);
+    }
   }
 }
 
