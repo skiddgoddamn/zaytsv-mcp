@@ -22,7 +22,7 @@ import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
 
-const VERSION = "0.8.0";
+const VERSION = "0.8.1";
 const BASE = (process.env.ZAYTSV_BASE_URL || "https://zaytsv.ru").replace(/\/+$/, "");
 const CONFIG_DIR = path.join(os.homedir(), ".zaytsv-bot-graph");
 const TOKEN_FILE = path.join(CONFIG_DIR, "token");
@@ -99,7 +99,7 @@ const MIME_BY_EXT = {
 };
 const guessMime = (name) => MIME_BY_EXT[path.extname(String(name || "")).toLowerCase()] || "application/octet-stream";
 
-// Загрузка файла в библиотеку /bots/files (POST /api/tg/media, multipart). Свой fetch:
+// Загрузка файла в библиотеку /bots/files (POST /api/bots/media, multipart). Свой fetch:
 // у api() Content-Type=application/json, для multipart его ставить нельзя (fetch сам задаёт boundary).
 async function uploadMedia({ filePath, url, filename }) {
   if (!isAuthed()) throw new Error(NO_AUTH_HELP);
@@ -125,7 +125,7 @@ async function uploadMedia({ filePath, url, filename }) {
   else if (cookie) headers.Cookie = cookie;
   const fd = new FormData();
   fd.append("file", new Blob([bytes], { type: mime }), name);
-  const res = await fetch(`${BASE}/api/tg/media`, { method: "POST", headers, body: fd });
+  const res = await fetch(`${BASE}/api/bots/media`, { method: "POST", headers, body: fd });
   const text = await res.text();
   let data = null; try { data = text ? JSON.parse(text) : null; } catch { data = text; }
   if (!res.ok) {
@@ -133,7 +133,7 @@ async function uploadMedia({ filePath, url, filename }) {
     if (res.status === 402) throw new Error("Лимит хранилища тарифа исчерпан (HTTP 402). Удали ненужные файлы (delete_file) или подними тариф на /bots/subscription.");
     if (res.status === 413) throw new Error("Файл больше 50 МБ (HTTP 413) — лимит Telegram для видео/документов.");
     const msg = typeof data === "string" ? data : JSON.stringify(data);
-    throw new Error(`POST /api/tg/media → HTTP ${res.status}. ${(msg || "").slice(0, 600)}`);
+    throw new Error(`POST /api/bots/media → HTTP ${res.status}. ${(msg || "").slice(0, 600)}`);
   }
   return data;
 }
@@ -170,12 +170,12 @@ const TOOLS = [
   { name: "copy_graph", description: "Скопировать граф в ДРУГОГО бота (в т.ч. на другую платформу). Возвращает {graphId, sourcePlatform, targetPlatform, notes[]}. notes[] помечают, что адаптировано (severity=TRANSFORM, напр. вопрос-контакт → ввод телефона текстом), что требует ручной правки (MANUAL, напр. условие SUBSCRIBED в MAX) и особенности платформы (INFO). Авто-адаптация узлов реализована для Telegram⇄MAX; при копировании в/из Instagram-бота граф копируется без трансформаций — несовместимые узлы будут отмечены при публикации (IG-allowlist). preview=true — только проверка совместимости, без копирования. Тот же бот запрещён (для дублирования есть clone_graph).", inputSchema: { type: "object", properties: { graphId: { type: "string" }, targetBotId: { type: "string", description: "id бота-получателя (см. list_bots)" }, preview: { type: "boolean", description: "true = только отчёт о совместимости, ничего не сохраняется" } }, required: ["graphId", "targetBotId"] } },
   { name: "delete_graph", description: "Удалить граф. Активный (опубликованный и назначенный боту) удалить нельзя — будет 409; сначала переключи активный через set_active_graph.", inputSchema: { type: "object", properties: { graphId: { type: "string" } }, required: ["graphId"] } },
   { name: "set_active_graph", description: "Назначить, какой опубликованный граф активен у бота (переключение живого сценария без перепубликации).", inputSchema: { type: "object", properties: { botId: { type: "string" }, graphId: { type: "string" } }, required: ["botId", "graphId"] } },
-  { name: "upload_file", description: "Загрузить файл в библиотеку /bots/files (POST /api/tg/media) и получить публичный URL для вставки в сценарий. Передай path (локальный файл) ИЛИ url (перезалить файл по ссылке в своё хранилище). Возвращает {id, url, mediaType, sizeBytes, originalName}. Полученный url ставь в медиа-карточку SEND_MESSAGE (image/video/audio/file/voice/videonote → поле url; gallery → urls[]) или в SEND_PHOTO.photoUrl. Лимит 50 МБ; типы: image/video/audio/pdf/zip/doc(x)/xlsx/pptx/txt (SVG запрещён); при нехватке места — HTTP 402.", inputSchema: { type: "object", properties: { path: { type: "string", description: "Путь к локальному файлу (поддерживается ~)" }, url: { type: "string", description: "Ссылка на файл — будет скачан и перезалит в /bots/files" }, filename: { type: "string", description: "Переопределить имя файла (необязательно)" } } } },
-  { name: "list_files", description: "Список файлов в библиотеке /bots/files (GET /api/tg/media) + использовано/лимит байт. Бери готовые url отсюда, чтобы не загружать одно и то же повторно.", inputSchema: { type: "object", properties: {} } },
-  { name: "delete_file", description: "Удалить файл из библиотеки /bots/files по id (DELETE /api/tg/media/{id}). Освобождает место в хранилище тарифа.", inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } },
-  { name: "graph_analytics", description: "Аналитика прохождения сценария по узлам (GET /api/tg/graphs/{graphId}/analytics): сколько пользователей дошло до каждого узла — видно, где отваливается воронка. Read-only.", inputSchema: { type: "object", properties: { graphId: { type: "string" } }, required: ["graphId"] } },
-  { name: "list_bot_users", description: "Пользователи (подписчики/лиды) бота, постранично (GET /api/tg/bots/{botId}/users). Опц. page (с 0), size (по умолч. 25), query (поиск по имени/username/id). Read-only.", inputSchema: { type: "object", properties: { botId: { type: "string" }, page: { type: "number" }, size: { type: "number" }, query: { type: "string" } }, required: ["botId"] } },
-  { name: "list_links", description: "Стартовые (трекинговые) ссылки бота с UTM (GET /api/tg/bots/{botId}/links): code, метки, число стартов. Это точки входа в воронку. Read-only.", inputSchema: { type: "object", properties: { botId: { type: "string" } }, required: ["botId"] } },
+  { name: "upload_file", description: "Загрузить файл в библиотеку /bots/files (POST /api/bots/media) и получить публичный URL для вставки в сценарий. Передай path (локальный файл) ИЛИ url (перезалить файл по ссылке в своё хранилище). Возвращает {id, url, mediaType, sizeBytes, originalName}. Полученный url ставь в медиа-карточку SEND_MESSAGE (image/video/audio/file/voice/videonote → поле url; gallery → urls[]) или в SEND_PHOTO.photoUrl. Лимит 50 МБ; типы: image/video/audio/pdf/zip/doc(x)/xlsx/pptx/txt (SVG запрещён); при нехватке места — HTTP 402.", inputSchema: { type: "object", properties: { path: { type: "string", description: "Путь к локальному файлу (поддерживается ~)" }, url: { type: "string", description: "Ссылка на файл — будет скачан и перезалит в /bots/files" }, filename: { type: "string", description: "Переопределить имя файла (необязательно)" } } } },
+  { name: "list_files", description: "Список файлов в библиотеке /bots/files (GET /api/bots/media) + использовано/лимит байт. Бери готовые url отсюда, чтобы не загружать одно и то же повторно.", inputSchema: { type: "object", properties: {} } },
+  { name: "delete_file", description: "Удалить файл из библиотеки /bots/files по id (DELETE /api/bots/media/{id}). Освобождает место в хранилище тарифа.", inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } },
+  { name: "graph_analytics", description: "Аналитика прохождения сценария по узлам (GET /api/bots/graphs/{graphId}/analytics): сколько пользователей дошло до каждого узла — видно, где отваливается воронка. Read-only.", inputSchema: { type: "object", properties: { graphId: { type: "string" } }, required: ["graphId"] } },
+  { name: "list_bot_users", description: "Пользователи (подписчики/лиды) бота, постранично (GET /api/bots/{botId}/users). Опц. page (с 0), size (по умолч. 25), query (поиск по имени/username/id). Read-only.", inputSchema: { type: "object", properties: { botId: { type: "string" }, page: { type: "number" }, size: { type: "number" }, query: { type: "string" } }, required: ["botId"] } },
+  { name: "list_links", description: "Стартовые (трекинговые) ссылки бота с UTM (GET /api/bots/{botId}/links): code, метки, число стартов. Это точки входа в воронку. Read-only.", inputSchema: { type: "object", properties: { botId: { type: "string" } }, required: ["botId"] } },
 ];
 
 async function handleCall(params) {
@@ -200,21 +200,21 @@ async function handleCall(params) {
         : "";
       // лёгкая проверка валидности
       let check = "";
-      try { const bots = await api("/api/tg/bots"); check = `\nПроверка: доступно ботов — ${Array.isArray(bots) ? bots.length : "?"}.`; }
+      try { const bots = await api("/api/bots"); check = `\nПроверка: доступно ботов — ${Array.isArray(bots) ? bots.length : "?"}.`; }
       catch (e) { check = `\n⚠️ Токен сохранён, но проверка не прошла: ${(e.message || "").split("\n")[0]}`; }
       return okResult(`✅ Токен сохранён (${TOKEN_FILE}). Применяется сразу.${warn}${envWarn}${check}`);
     }
-    case "list_bots": return okResult(await api("/api/tg/bots"));
-    case "list_graphs": return okResult(await api(`/api/tg/bots/${a.botId}/graphs`));
-    case "list_channels": return okResult(await api(`/api/tg/bots/${a.botId}/linked-chats`));
-    case "get_graph": return okResult(await api(`/api/tg/graphs/${a.graphId}`));
-    case "create_graph": return okResult(await api(`/api/tg/bots/${a.botId}/graphs`, { method: "POST", body: { name: a.name } }));
+    case "list_bots": return okResult(await api("/api/bots"));
+    case "list_graphs": return okResult(await api(`/api/bots/${a.botId}/graphs`));
+    case "list_channels": return okResult(await api(`/api/bots/${a.botId}/linked-chats`));
+    case "get_graph": return okResult(await api(`/api/bots/graphs/${a.graphId}`));
+    case "create_graph": return okResult(await api(`/api/bots/${a.botId}/graphs`, { method: "POST", body: { name: a.name } }));
     case "update_graph": {
       const src = a.graph ? extractGraph(a.graph) : { nodes: a.nodes, edges: a.edges, canvasMeta: a.canvasMeta ?? {}, name: a.name };
       if (!Array.isArray(src.nodes) || !Array.isArray(src.edges)) throw new Error("Нужны nodes[] и edges[] (в graph или отдельно).");
       const payload = { nodes: src.nodes, edges: src.edges, canvasMeta: src.canvasMeta ?? {} };
       if (a.name ?? src.name) payload.name = a.name ?? src.name;
-      return okResult(await api(`/api/tg/graphs/${a.graphId}`, { method: "PUT", body: payload }));
+      return okResult(await api(`/api/bots/graphs/${a.graphId}`, { method: "PUT", body: payload }));
     }
     case "edit_graph_live": {
       const src = a.graph ? extractGraph(a.graph) : { nodes: a.nodes, edges: a.edges, canvasMeta: a.canvasMeta ?? {}, name: a.name };
@@ -223,20 +223,20 @@ async function handleCall(params) {
       let backupGraphId = null;
       if (a.backup !== false) {
         // снимок ТЕКУЩЕГО (до правки) состояния в один rolling-граф «🔙 Авто-бэкап» (один на бота, перезаписывается)
-        const current = await api(`/api/tg/graphs/${a.graphId}`);
+        const current = await api(`/api/bots/graphs/${a.graphId}`);
         const botId = current.botId;
         const BACKUP_NAME = "🔙 Авто-бэкап (предыдущее состояние)";
-        const graphs = await api(`/api/tg/bots/${botId}/graphs`);
+        const graphs = await api(`/api/bots/${botId}/graphs`);
         let backup = (Array.isArray(graphs) ? graphs : [])
           .find((g) => g.name === BACKUP_NAME && g.status === "DRAFT" && g.id !== a.graphId);
-        if (!backup) backup = await api(`/api/tg/bots/${botId}/graphs`, { method: "POST", body: { name: BACKUP_NAME } });
+        if (!backup) backup = await api(`/api/bots/${botId}/graphs`, { method: "POST", body: { name: BACKUP_NAME } });
         backupGraphId = backup.id;
-        await api(`/api/tg/graphs/${backup.id}`, { method: "PUT", body: { nodes: current.nodes ?? [], edges: current.edges ?? [], canvasMeta: current.canvasMeta ?? {}, name: BACKUP_NAME } });
+        await api(`/api/bots/graphs/${backup.id}`, { method: "PUT", body: { nodes: current.nodes ?? [], edges: current.edges ?? [], canvasMeta: current.canvasMeta ?? {}, name: BACKUP_NAME } });
         steps.push(`бэкап предыдущего состояния → ${backup.id} (DRAFT «${BACKUP_NAME}»)`);
       }
       const payload = { nodes: src.nodes, edges: src.edges, canvasMeta: src.canvasMeta ?? {} };
       if (a.name ?? src.name) payload.name = a.name ?? src.name;
-      const saved = await api(`/api/tg/graphs/${a.graphId}`, { method: "PUT", body: payload });
+      const saved = await api(`/api/bots/graphs/${a.graphId}`, { method: "PUT", body: payload });
       steps.push(`правка применена НА МЕСТЕ к ${a.graphId} (id не изменился; редакторы и бот подхватят live)`);
       return okResult({ graphId: a.graphId, backupGraphId, inPlace: true, status: saved?.status ?? null, nodes: Array.isArray(saved?.nodes) ? saved.nodes.length : null, edges: Array.isArray(saved?.edges) ? saved.edges.length : null, steps });
     }
@@ -247,7 +247,7 @@ async function handleCall(params) {
         if (!r || typeof r.find !== "string" || typeof r.replace !== "string") throw new Error("Каждая замена — объект {find:string, replace:string}.");
         if (r.find === "") throw new Error("find не может быть пустой строкой.");
       }
-      const current = await api(`/api/tg/graphs/${a.graphId}`);
+      const current = await api(`/api/bots/graphs/${a.graphId}`);
       let json = JSON.stringify(current);
       const report = [];
       for (const r of reps) {
@@ -265,36 +265,36 @@ async function handleCall(params) {
       if (a.backup !== false) {
         const botId = current.botId;
         const BACKUP_NAME = "🔙 Авто-бэкап (предыдущее состояние)";
-        const graphs = await api(`/api/tg/bots/${botId}/graphs`);
+        const graphs = await api(`/api/bots/${botId}/graphs`);
         let backup = (Array.isArray(graphs) ? graphs : [])
           .find((g) => g.name === BACKUP_NAME && g.status === "DRAFT" && g.id !== a.graphId);
-        if (!backup) backup = await api(`/api/tg/bots/${botId}/graphs`, { method: "POST", body: { name: BACKUP_NAME } });
+        if (!backup) backup = await api(`/api/bots/${botId}/graphs`, { method: "POST", body: { name: BACKUP_NAME } });
         backupGraphId = backup.id;
-        await api(`/api/tg/graphs/${backup.id}`, { method: "PUT", body: { nodes: current.nodes ?? [], edges: current.edges ?? [], canvasMeta: current.canvasMeta ?? {}, name: BACKUP_NAME } });
+        await api(`/api/bots/graphs/${backup.id}`, { method: "PUT", body: { nodes: current.nodes ?? [], edges: current.edges ?? [], canvasMeta: current.canvasMeta ?? {}, name: BACKUP_NAME } });
       }
       const payload = { nodes: patched.nodes ?? [], edges: patched.edges ?? [], canvasMeta: patched.canvasMeta ?? {} };
       if (patched.name) payload.name = patched.name;
-      const saved = await api(`/api/tg/graphs/${a.graphId}`, { method: "PUT", body: payload });
+      const saved = await api(`/api/bots/graphs/${a.graphId}`, { method: "PUT", body: payload });
       return okResult({ graphId: a.graphId, changed: true, totalMatches: total, replacements: report, backupGraphId, inPlace: true, status: saved?.status ?? null, nodes: Array.isArray(saved?.nodes) ? saved.nodes.length : null });
     }
     case "dry_run":
-      return okResult(await api(`/api/tg/graphs/${a.graphId}/dry-run`, { method: "POST", body: { kind: a.kind, value: a.value, fromUsername: a.fromUsername, presetVariables: a.presetVariables, presetTags: a.presetTags } }));
+      return okResult(await api(`/api/bots/graphs/${a.graphId}/dry-run`, { method: "POST", body: { kind: a.kind, value: a.value, fromUsername: a.fromUsername, presetVariables: a.presetVariables, presetTags: a.presetTags } }));
     case "publish_graph":
-      return okResult(await api(`/api/tg/graphs/${a.graphId}/publish`, { method: "POST" }));
+      return okResult(await api(`/api/bots/graphs/${a.graphId}/publish`, { method: "POST" }));
     case "import_funnel": {
       const src = extractGraph(a.graph);
       const steps = [];
-      const created = await api(`/api/tg/bots/${a.botId}/graphs`, { method: "POST", body: { name: a.name || src.name || "Воронка" } });
+      const created = await api(`/api/bots/${a.botId}/graphs`, { method: "POST", body: { name: a.name || src.name || "Воронка" } });
       const graphId = created.id;
       steps.push(`создан граф ${graphId}`);
-      await api(`/api/tg/graphs/${graphId}`, { method: "PUT", body: { nodes: src.nodes, edges: src.edges, canvasMeta: src.canvasMeta ?? {}, name: a.name || src.name } });
+      await api(`/api/bots/graphs/${graphId}`, { method: "PUT", body: { nodes: src.nodes, edges: src.edges, canvasMeta: src.canvasMeta ?? {}, name: a.name || src.name } });
       steps.push(`залито узлов: ${src.nodes.length}, рёбер: ${src.edges.length}`);
       if (a.dryRun !== false) {
-        const dr = await api(`/api/tg/graphs/${graphId}/dry-run`, { method: "POST", body: { kind: "command", value: "start" } });
+        const dr = await api(`/api/bots/graphs/${graphId}/dry-run`, { method: "POST", body: { kind: "command", value: "start" } });
         steps.push(`dry-run /start: runStatus=${dr.runStatus}`);
       }
       if (a.publish !== false) {
-        const pub = await api(`/api/tg/graphs/${graphId}/publish`, { method: "POST" });
+        const pub = await api(`/api/bots/graphs/${graphId}/publish`, { method: "POST" });
         if (pub.errors && pub.errors.length) {
           steps.push(`❌ публикация не прошла, ошибок: ${pub.errors.length}`);
           return okResult({ graphId, steps, publishErrors: pub.errors });
@@ -304,38 +304,38 @@ async function handleCall(params) {
       }
       return okResult({ graphId, steps });
     }
-    case "list_templates": return okResult(await api("/api/tg/graph-templates"));
+    case "list_templates": return okResult(await api("/api/bots/graph-templates"));
     case "create_graph_from_template":
-      return okResult(await api(`/api/tg/bots/${a.botId}/graphs/from-template`, { method: "POST", body: { templateId: a.templateId, name: a.name } }));
+      return okResult(await api(`/api/bots/${a.botId}/graphs/from-template`, { method: "POST", body: { templateId: a.templateId, name: a.name } }));
     case "rename_graph":
-      return okResult(await api(`/api/tg/graphs/${a.graphId}/rename`, { method: "PATCH", body: { name: a.name } }));
+      return okResult(await api(`/api/bots/graphs/${a.graphId}/rename`, { method: "PATCH", body: { name: a.name } }));
     case "clone_graph":
-      return okResult(await api(`/api/tg/graphs/${a.graphId}/clone`, { method: "POST" }));
+      return okResult(await api(`/api/bots/graphs/${a.graphId}/clone`, { method: "POST" }));
     case "copy_graph":
-      return okResult(await api(`/api/tg/graphs/${a.graphId}/copy`, { method: "POST", body: { targetBotId: a.targetBotId, preview: a.preview === true } }));
+      return okResult(await api(`/api/bots/graphs/${a.graphId}/copy`, { method: "POST", body: { targetBotId: a.targetBotId, preview: a.preview === true } }));
     case "delete_graph":
-      await api(`/api/tg/graphs/${a.graphId}`, { method: "DELETE" });
+      await api(`/api/bots/graphs/${a.graphId}`, { method: "DELETE" });
       return okResult(`🗑️ Граф ${a.graphId} удалён.`);
     case "set_active_graph":
-      await api(`/api/tg/bots/${a.botId}/active-graph`, { method: "POST", body: { graphId: a.graphId } });
+      await api(`/api/bots/${a.botId}/active-graph`, { method: "POST", body: { graphId: a.graphId } });
       return okResult(`✅ Активный граф бота ${a.botId} → ${a.graphId}.`);
     case "upload_file": {
       const saved = await uploadMedia({ filePath: a.path, url: a.url, filename: a.filename });
       return okResult({ ...saved, hint: "Готово. Ставь url в медиа-карточку SEND_MESSAGE (image/video/audio/file/voice/videonote → url; gallery → urls[]) или в SEND_PHOTO.photoUrl." });
     }
-    case "list_files": return okResult(await api("/api/tg/media"));
+    case "list_files": return okResult(await api("/api/bots/media"));
     case "delete_file":
-      await api(`/api/tg/media/${a.id}`, { method: "DELETE" });
+      await api(`/api/bots/media/${a.id}`, { method: "DELETE" });
       return okResult(`🗑️ Файл ${a.id} удалён из /bots/files.`);
-    case "graph_analytics": return okResult(await api(`/api/tg/graphs/${a.graphId}/analytics`));
+    case "graph_analytics": return okResult(await api(`/api/bots/graphs/${a.graphId}/analytics`));
     case "list_bot_users": {
       const qs = [];
       if (a.page != null) qs.push(`page=${encodeURIComponent(a.page)}`);
       if (a.size != null) qs.push(`size=${encodeURIComponent(a.size)}`);
       if (a.query) qs.push(`q=${encodeURIComponent(a.query)}`);
-      return okResult(await api(`/api/tg/bots/${a.botId}/users${qs.length ? `?${qs.join("&")}` : ""}`));
+      return okResult(await api(`/api/bots/${a.botId}/users${qs.length ? `?${qs.join("&")}` : ""}`));
     }
-    case "list_links": return okResult(await api(`/api/tg/bots/${a.botId}/links`));
+    case "list_links": return okResult(await api(`/api/bots/${a.botId}/links`));
     default:
       throw new Error(`Неизвестный инструмент: ${params && params.name}`);
   }
