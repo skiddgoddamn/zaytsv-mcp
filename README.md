@@ -17,7 +17,7 @@ MCP-сервер (+ скилл для Claude Code) для **сборки и пу
 |---|---|---|---|
 | **Telegram** | Токен бота (BotFather) | `/start`, команды, callback, текст, рассылки | Полный функционал |
 | **MAX** | Токен бота (MAX Developer) | Команды, callback, текст | Без SUBSCRIBED/reply-клавиатур (мягкие предупреждения) |
-| **Instagram** | OAuth в `/growth` (без токена) | Комментарий/Direct/Ответ на историю/Упоминание | Ограниченный набор узлов; DELAY ≤ 24ч; ASK_QUESTION только TEXT/EMAIL/PHONE/NUMBER; без рассылок |
+| **Instagram** | OAuth в `/growth` (без токена) | Комментарий/Direct/Ответ на историю/Упоминание | Ограниченный набор узлов; DELAY ≤ 24ч; ASK_QUESTION только TEXT/EMAIL/PHONE/NUMBER/CONTACT (CONTACT = ручной ввод номера); без рассылок |
 
 ---
 

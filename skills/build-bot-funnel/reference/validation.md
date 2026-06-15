@@ -83,9 +83,9 @@ Instagram доставляет сообщения только в течение
 
 ### `IG_INPUT_UNSUPPORTED` — неподдерживаемый вид ответа
 
-У `ASK_QUESTION`, `inputKind` ограничен: только `TEXT`, `EMAIL`, `PHONE`, `NUMBER`.
+У `ASK_QUESTION`, `inputKind` ограничен: `TEXT`, `EMAIL`, `PHONE`, `NUMBER`, `CONTACT`.
 
-Не поддерживается: `CONTACT` (кнопка «Поделиться номером» недоступна в IG Messaging API), `LOCATION`, `PHOTO`, `DOCUMENT`.
+`CONTACT` допустим: кнопки «Поделиться номером» в IG Messaging API нет, поэтому вопрос уходит текстом-инструкцией, а номер принимается набранным вручную (как телефон). Не поддерживается: `LOCATION`, `PHOTO`, `DOCUMENT`.
 
 `inputKind == null` (не задан) — допустимо (дефолт = текст).
 

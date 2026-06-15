@@ -299,7 +299,7 @@ for (const n of nodes) if (!color[n.id]) dfs(n.id);
 // IG_ALLOWED_NODES: TRIGGER_IG_COMMENT, TRIGGER_IG_DM, TRIGGER_IG_STORY_REPLY,
 //   TRIGGER_IG_STORY_MENTION, SEND_MESSAGE, SEND_PHOTO, BRANCH, CONDITION,
 //   SET_VARIABLE, ADD_TAG, REMOVE_TAG, FORMULA, ASK_QUESTION, DELAY, END.
-// IG_ALLOWED_INPUT_KINDS: TEXT, EMAIL, PHONE, NUMBER.
+// IG_ALLOWED_INPUT_KINDS: TEXT, EMAIL, PHONE, NUMBER, CONTACT (CONTACT деградирует в ручной ввод номера — кнопки в IG нет).
 // IG_MAX_DELAY_SECONDS: 86400 (24 часа).
 // ============================================================
 
@@ -312,7 +312,7 @@ if (platform === "INSTAGRAM") {
     "ADD_TAG", "REMOVE_TAG", "FORMULA",
     "ASK_QUESTION", "DELAY", "END",
   ]);
-  const IG_ALLOWED_INPUT_KINDS = new Set(["TEXT", "EMAIL", "PHONE", "NUMBER"]);
+  const IG_ALLOWED_INPUT_KINDS = new Set(["TEXT", "EMAIL", "PHONE", "NUMBER", "CONTACT"]);
   const IG_MAX_DELAY_SEC = 86400; // 24h messaging window
 
   function igDelaySeconds(c) {
@@ -356,7 +356,7 @@ if (platform === "INSTAGRAM") {
     if (type === "ASK_QUESTION") {
       const kind = c.inputKind;
       if (kind != null && !IG_ALLOWED_INPUT_KINDS.has(String(kind).toUpperCase())) {
-        errors.push(`IG_INPUT_UNSUPPORTED: ${who} — В Instagram нельзя запросить «${kind}» — только TEXT/EMAIL/PHONE/NUMBER`);
+        errors.push(`IG_INPUT_UNSUPPORTED: ${who} — В Instagram нельзя запросить «${kind}» — только TEXT/EMAIL/PHONE/NUMBER/CONTACT (CONTACT = ручной ввод номера)`);
       }
     }
 
