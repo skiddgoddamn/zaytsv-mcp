@@ -332,6 +332,14 @@ if (platform === "INSTAGRAM") {
     return Infinity; // malformed FIXED — treat as unbounded (block it)
   }
 
+  // Достижимость от триггеров-комментариев: «Ответ в комментарии» (igReplyChannel="comment")
+  // имеет смысл только в сценарии, запускаемом комментарием (иначе отвечать в комментарии некуда).
+  const reachFromComment = new Set();
+  {
+    const st = nodes.filter((n) => n.type === "TRIGGER_IG_COMMENT").map((n) => n.id);
+    while (st.length) { const x = st.pop(); if (reachFromComment.has(x)) continue; reachFromComment.add(x); (adj[x] || []).forEach((y) => st.push(y)); }
+  }
+
   for (const n of nodes) {
     const type = n.type;
     const c = n.config || {};
@@ -358,6 +366,12 @@ if (platform === "INSTAGRAM") {
       if (sec > IG_MAX_DELAY_SEC) {
         errors.push(`IG_DELAY_OVER_24H: ${who} — задержка больше 24ч недопустима для Instagram (24-часовое окно доставки)`);
       }
+    }
+
+    // 4) «Ответ в комментарии» только в сценарии с триггером-комментарием
+    if ((type === "SEND_MESSAGE" || type === "SEND_PHOTO")
+        && String(c.igReplyChannel) === "comment" && !reachFromComment.has(n.id)) {
+      errors.push(`IG_COMMENT_REPLY_NO_COMMENT_TRIGGER: ${who} — «Ответ в комментарии» доступен только если шаг запускается триггером «Комментарий»; выбери «Личное сообщение» (igReplyChannel:"dm") или подключи шаг к TRIGGER_IG_COMMENT`);
     }
 
     // 4) TRIGGER_IG_STORY_MENTION: keywords игнорируется — текста упоминания нет

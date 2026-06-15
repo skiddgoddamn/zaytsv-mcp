@@ -149,7 +149,7 @@ IG-боты подключаются через OAuth в разделе **«Ин
 - **`ASK_QUESTION`** — `inputKind` ограничен: только `TEXT`, `EMAIL`, `PHONE`, `NUMBER` (`IG_INPUT_UNSUPPORTED`). Нельзя запрашивать `CONTACT` (кнопка «Поделиться номером» недоступна в IG), `LOCATION`, `PHOTO`, `DOCUMENT`.
 - **Нет reply-клавиатур** — кнопки IG работают как inline (URL или Deep Link); стиль кнопок ограничен возможностями IG Messaging API.
 - **Нет SUBSCRIBED** — условие «подписан на канал» недоступно.
-- **Коммент → ЛС (Private Reply)** — на `SEND_MESSAGE`/`SEND_PHOTO` в графе с `TRIGGER_IG_COMMENT` укажи `"igReplyChannel": "dm"`, чтобы ответить автору комментария в Direct (а не публично под постом). По умолчанию (`"comment"`) — публичный ответ. Подробнее — `igReplyChannel` в разделе «Сообщения».
+- **Коммент → ЛС (Private Reply)** — на `SEND_MESSAGE`/`SEND_PHOTO` в графе с `TRIGGER_IG_COMMENT` укажи `"igReplyChannel": "dm"`, чтобы ответить автору комментария в Direct (а не публично под постом). По умолчанию (`"comment"`) — публичный ответ. Подробнее — `igReplyChannel` в разделе «Сообщения». **`"comment"` тоже требует, чтобы шаг был достижим от `TRIGGER_IG_COMMENT`** — иначе ошибка валидации `IG_COMMENT_REPLY_NO_COMMENT_TRIGGER` (в DM/story-флоу отвечать в комментарии некуда).
 
 ### Оффлайн-проверка IG-графа
 
