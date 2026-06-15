@@ -244,6 +244,8 @@ for (const n of nodes) {
           errors.push(`ACTION_BAD_KEY: ${who} — set_field.key ∈ [a-z_][a-z0-9_]{0,63}.`);
         if (["subscriber_webhook", "external_request"].includes(a.kind) && !isHttp(a.url))
           errors.push(`ACTION_BAD_URL: ${who} — ${a.kind}.url должен быть http(s)://.`);
+        if (a.kind === "gsheets_send" && (!a.googleEmail || !a.spreadsheetId || !Array.isArray(a.cells) || a.cells.length === 0))
+          errors.push(`ACTION_GSHEETS_INCOMPLETE: ${who} — gsheets_send требует googleEmail + spreadsheetId + непустой cells[] (Google-аккаунт подключается в вебе /bots, не через MCP).`);
       });
       break;
     }
