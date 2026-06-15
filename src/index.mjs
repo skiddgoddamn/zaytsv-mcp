@@ -22,7 +22,7 @@ import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
 
-const VERSION = "0.7.5";
+const VERSION = "0.8.0";
 const BASE = (process.env.ZAYTSV_BASE_URL || "https://zaytsv.ru").replace(/\/+$/, "");
 const CONFIG_DIR = path.join(os.homedir(), ".zaytsv-bot-graph");
 const TOKEN_FILE = path.join(CONFIG_DIR, "token");
@@ -87,6 +87,57 @@ async function api(path_, { method = "GET", body } = {}) {
   return data;
 }
 
+// MIME по расширению — уходит как Content-Type части multipart, бэкенд по нему определяет тип медиа.
+const MIME_BY_EXT = {
+  ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".gif": "image/gif",
+  ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime",
+  ".mp3": "audio/mpeg", ".ogg": "audio/ogg", ".oga": "audio/ogg", ".wav": "audio/wav", ".m4a": "audio/mp4",
+  ".pdf": "application/pdf", ".zip": "application/zip", ".doc": "application/msword", ".txt": "text/plain",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+};
+const guessMime = (name) => MIME_BY_EXT[path.extname(String(name || "")).toLowerCase()] || "application/octet-stream";
+
+// Загрузка файла в библиотеку /bots/files (POST /api/tg/media, multipart). Свой fetch:
+// у api() Content-Type=application/json, для multipart его ставить нельзя (fetch сам задаёт boundary).
+async function uploadMedia({ filePath, url, filename }) {
+  if (!isAuthed()) throw new Error(NO_AUTH_HELP);
+  let bytes, name, mime;
+  if (filePath) {
+    const abs = path.resolve(String(filePath).replace(/^~(?=$|[/\\])/, os.homedir()));
+    try { bytes = fs.readFileSync(abs); } catch { throw new Error(`Файл не найден: ${abs}`); }
+    name = filename || path.basename(abs);
+    mime = guessMime(name);
+  } else if (url) {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`Не удалось скачать файл по url (HTTP ${r.status}).`);
+    bytes = Buffer.from(await r.arrayBuffer());
+    let base = "file"; try { base = path.basename(new URL(url).pathname) || "file"; } catch { /* ignore */ }
+    name = filename || base;
+    mime = r.headers.get("content-type") || guessMime(name);
+  } else {
+    throw new Error("Передай path (локальный файл) ИЛИ url (ссылку для перезаливки).");
+  }
+  const headers = {};
+  const token = getToken(); const cookie = getCookie();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  else if (cookie) headers.Cookie = cookie;
+  const fd = new FormData();
+  fd.append("file", new Blob([bytes], { type: mime }), name);
+  const res = await fetch(`${BASE}/api/tg/media`, { method: "POST", headers, body: fd });
+  const text = await res.text();
+  let data = null; try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) throw new Error(`Доступ отклонён (HTTP ${res.status}). Токен невалиден/отозван — создай новый на ${TOKENS_PAGE}.`);
+    if (res.status === 402) throw new Error("Лимит хранилища тарифа исчерпан (HTTP 402). Удали ненужные файлы (delete_file) или подними тариф на /bots/subscription.");
+    if (res.status === 413) throw new Error("Файл больше 50 МБ (HTTP 413) — лимит Telegram для видео/документов.");
+    const msg = typeof data === "string" ? data : JSON.stringify(data);
+    throw new Error(`POST /api/tg/media → HTTP ${res.status}. ${(msg || "").slice(0, 600)}`);
+  }
+  return data;
+}
+
 const okResult = (obj) => ({ content: [{ type: "text", text: typeof obj === "string" ? obj : JSON.stringify(obj, null, 2) }] });
 const errResult = (e) => ({ isError: true, content: [{ type: "text", text: "❌ " + (e?.message || String(e)) }] });
 
@@ -119,6 +170,12 @@ const TOOLS = [
   { name: "copy_graph", description: "Скопировать граф в ДРУГОГО бота (в т.ч. на другую платформу). Возвращает {graphId, sourcePlatform, targetPlatform, notes[]}. notes[] помечают, что адаптировано (severity=TRANSFORM, напр. вопрос-контакт → ввод телефона текстом), что требует ручной правки (MANUAL, напр. условие SUBSCRIBED в MAX) и особенности платформы (INFO). Авто-адаптация узлов реализована для Telegram⇄MAX; при копировании в/из Instagram-бота граф копируется без трансформаций — несовместимые узлы будут отмечены при публикации (IG-allowlist). preview=true — только проверка совместимости, без копирования. Тот же бот запрещён (для дублирования есть clone_graph).", inputSchema: { type: "object", properties: { graphId: { type: "string" }, targetBotId: { type: "string", description: "id бота-получателя (см. list_bots)" }, preview: { type: "boolean", description: "true = только отчёт о совместимости, ничего не сохраняется" } }, required: ["graphId", "targetBotId"] } },
   { name: "delete_graph", description: "Удалить граф. Активный (опубликованный и назначенный боту) удалить нельзя — будет 409; сначала переключи активный через set_active_graph.", inputSchema: { type: "object", properties: { graphId: { type: "string" } }, required: ["graphId"] } },
   { name: "set_active_graph", description: "Назначить, какой опубликованный граф активен у бота (переключение живого сценария без перепубликации).", inputSchema: { type: "object", properties: { botId: { type: "string" }, graphId: { type: "string" } }, required: ["botId", "graphId"] } },
+  { name: "upload_file", description: "Загрузить файл в библиотеку /bots/files (POST /api/tg/media) и получить публичный URL для вставки в сценарий. Передай path (локальный файл) ИЛИ url (перезалить файл по ссылке в своё хранилище). Возвращает {id, url, mediaType, sizeBytes, originalName}. Полученный url ставь в медиа-карточку SEND_MESSAGE (image/video/audio/file/voice/videonote → поле url; gallery → urls[]) или в SEND_PHOTO.photoUrl. Лимит 50 МБ; типы: image/video/audio/pdf/zip/doc(x)/xlsx/pptx/txt (SVG запрещён); при нехватке места — HTTP 402.", inputSchema: { type: "object", properties: { path: { type: "string", description: "Путь к локальному файлу (поддерживается ~)" }, url: { type: "string", description: "Ссылка на файл — будет скачан и перезалит в /bots/files" }, filename: { type: "string", description: "Переопределить имя файла (необязательно)" } } } },
+  { name: "list_files", description: "Список файлов в библиотеке /bots/files (GET /api/tg/media) + использовано/лимит байт. Бери готовые url отсюда, чтобы не загружать одно и то же повторно.", inputSchema: { type: "object", properties: {} } },
+  { name: "delete_file", description: "Удалить файл из библиотеки /bots/files по id (DELETE /api/tg/media/{id}). Освобождает место в хранилище тарифа.", inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } },
+  { name: "graph_analytics", description: "Аналитика прохождения сценария по узлам (GET /api/tg/graphs/{graphId}/analytics): сколько пользователей дошло до каждого узла — видно, где отваливается воронка. Read-only.", inputSchema: { type: "object", properties: { graphId: { type: "string" } }, required: ["graphId"] } },
+  { name: "list_bot_users", description: "Пользователи (подписчики/лиды) бота, постранично (GET /api/tg/bots/{botId}/users). Опц. page (с 0), size (по умолч. 25), query (поиск по имени/username/id). Read-only.", inputSchema: { type: "object", properties: { botId: { type: "string" }, page: { type: "number" }, size: { type: "number" }, query: { type: "string" } }, required: ["botId"] } },
+  { name: "list_links", description: "Стартовые (трекинговые) ссылки бота с UTM (GET /api/tg/bots/{botId}/links): code, метки, число стартов. Это точки входа в воронку. Read-only.", inputSchema: { type: "object", properties: { botId: { type: "string" } }, required: ["botId"] } },
 ];
 
 async function handleCall(params) {
@@ -262,6 +319,23 @@ async function handleCall(params) {
     case "set_active_graph":
       await api(`/api/tg/bots/${a.botId}/active-graph`, { method: "POST", body: { graphId: a.graphId } });
       return okResult(`✅ Активный граф бота ${a.botId} → ${a.graphId}.`);
+    case "upload_file": {
+      const saved = await uploadMedia({ filePath: a.path, url: a.url, filename: a.filename });
+      return okResult({ ...saved, hint: "Готово. Ставь url в медиа-карточку SEND_MESSAGE (image/video/audio/file/voice/videonote → url; gallery → urls[]) или в SEND_PHOTO.photoUrl." });
+    }
+    case "list_files": return okResult(await api("/api/tg/media"));
+    case "delete_file":
+      await api(`/api/tg/media/${a.id}`, { method: "DELETE" });
+      return okResult(`🗑️ Файл ${a.id} удалён из /bots/files.`);
+    case "graph_analytics": return okResult(await api(`/api/tg/graphs/${a.graphId}/analytics`));
+    case "list_bot_users": {
+      const qs = [];
+      if (a.page != null) qs.push(`page=${encodeURIComponent(a.page)}`);
+      if (a.size != null) qs.push(`size=${encodeURIComponent(a.size)}`);
+      if (a.query) qs.push(`q=${encodeURIComponent(a.query)}`);
+      return okResult(await api(`/api/tg/bots/${a.botId}/users${qs.length ? `?${qs.join("&")}` : ""}`));
+    }
+    case "list_links": return okResult(await api(`/api/tg/bots/${a.botId}/links`));
     default:
       throw new Error(`Неизвестный инструмент: ${params && params.name}`);
   }

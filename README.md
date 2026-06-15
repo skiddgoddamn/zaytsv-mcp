@@ -7,7 +7,8 @@
 
 MCP-сервер (+ скилл для Claude Code) для **сборки и публикации воронок/автоматизаций ботов (Telegram, MAX и Instagram)** в сервисе [zaytsv `/bots`](https://zaytsv.ru/bots): из текстового описания → валидный граф сценария → заливка и публикация через API.
 
-- 🤖 **20 инструментов сборки/публикации**: `list_bots`, `list_graphs`, `list_channels`, `get_graph`, `create_graph`, `update_graph`, `edit_graph_live`, `patch_graph`, `dry_run`, `publish_graph`, `import_funnel`, `list_templates`, `create_graph_from_template`, `clone_graph`, `copy_graph`, `rename_graph`, `set_active_graph`, `delete_graph` (+ `setup`/`set_token`).
+- 🤖 **26 инструментов сборки/публикации**: `list_bots`, `list_graphs`, `list_channels`, `get_graph`, `create_graph`, `update_graph`, `edit_graph_live`, `patch_graph`, `dry_run`, `publish_graph`, `import_funnel`, `list_templates`, `create_graph_from_template`, `clone_graph`, `copy_graph`, `rename_graph`, `set_active_graph`, `delete_graph`, `upload_file`, `list_files`, `delete_file`, `graph_analytics`, `list_bot_users`, `list_links` (+ `setup`/`set_token`).
+- 📎 **Медиа**: `upload_file` грузит фото/видео/документы в библиотеку **/bots/files** (до 50 МБ) и возвращает публичный URL — его вставляешь в медиа-карточку сценария.
 - 🧠 **Скилл `build-bot-funnel`**: учит агента собирать корректный граф (типы узлов, ветки, кнопки, задержки) и проверять его перед публикацией. Поддерживает Telegram, MAX и Instagram.
 - 📦 **Без зависимостей** — чистый Node ≥18, ставится и запускается сразу.
 
@@ -104,6 +105,12 @@ MCP-сервер (+ скилл для Claude Code) для **сборки и пу
 | `rename_graph(graphId, name)` | переименовать сценарий |
 | `set_active_graph(botId, graphId)` | переключить активный (живой) граф бота |
 | `delete_graph(graphId)` | удалить граф (активный — нельзя, 409) |
+| `upload_file(path\|url)` | загрузить файл в /bots/files → публичный `url` для медиа-карточки |
+| `list_files()` | файлы библиотеки /bots/files + использовано/лимит байт |
+| `delete_file(id)` | удалить файл из /bots/files |
+| `graph_analytics(graphId)` | прохождение сценария по узлам (где отваливается воронка) |
+| `list_bot_users(botId)` | подписчики/лиды бота (постранично, поиск `query`) |
+| `list_links(botId)` | стартовые трекинговые ссылки бота с UTM |
 
 ---
 
