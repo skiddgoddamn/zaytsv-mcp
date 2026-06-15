@@ -108,6 +108,12 @@ if (broadcast.length && triggers.length > broadcast.length) errors.push("BROADCA
 for (const n of nodes) {
   const c = n.config || {};
   const who = `«${c._title || n.id}» (${n.type})`;
+  if (c.igReplyChannel != null && !["comment", "dm"].includes(String(c.igReplyChannel))) {
+    warns.push(`${who}: igReplyChannel должен быть "comment" или "dm" (получено "${c.igReplyChannel}")`);
+  }
+  if (String(c.igReplyChannel) === "dm" && platform !== "INSTAGRAM") {
+    warns.push(`${who}: igReplyChannel="dm" учитывается только у Instagram-ботов`);
+  }
   switch (n.type) {
     case "SEND_MESSAGE": {
       const flat = !blank(c.text) || !blank(c.photoUrl);
