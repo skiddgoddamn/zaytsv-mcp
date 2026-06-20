@@ -31,14 +31,18 @@ function finish() {
   const tools = tl?.result?.tools;
   const toolNames = Array.isArray(tools) ? tools.map((t) => t.name) : [];
   const ok =
-    init?.result?.serverInfo?.name === "zaytsv-bot-graph" &&
+    init?.result?.serverInfo?.name === "zaytsv-mcp" &&
     Array.isArray(tools) &&
-    tools.length === 26 &&
+    tools.length === 30 &&
     toolNames.includes("list_channels") &&
     toolNames.includes("edit_graph_live") &&
     toolNames.includes("copy_graph") &&
     toolNames.includes("patch_graph") &&
-    toolNames.includes("upload_file");
+    toolNames.includes("upload_file") &&
+    toolNames.includes("article_publish") &&
+    toolNames.includes("article_update") &&
+    toolNames.includes("article_list") &&
+    toolNames.includes("article_get");
   child.kill();
   if (!ok) {
     console.error("SMOKE FAIL:", JSON.stringify({ init, tl }, null, 2));

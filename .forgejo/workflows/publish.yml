@@ -1,0 +1,27 @@
+name: Publish to npm
+
+# Публикация по тегу vX.Y.Z через Forgejo Actions.
+# Требует секрет репозитория/организации NPM_TOKEN (npm → Access Tokens →
+# Automation/Granular, права publish на пакет zaytsv-mcp).
+# Без --provenance: Forgejo не является поддерживаемым провайдером npm provenance
+# (это работает только на GitHub/GitLab OIDC).
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: "https://registry.npmjs.org"
+      - name: Smoke test
+        run: node scripts/smoke.mjs
+      - name: Publish
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
