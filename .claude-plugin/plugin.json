@@ -1,7 +1,7 @@
 {
   "name": "zaytsv-mcp",
   "displayName": "Zaytsv MCP",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "MCP-сервер + скилл для zaytsv: сборка и публикация воронок ботов (Telegram/MAX/Instagram) и публикация статей блога в Markdown — всё одним токеном zmcp_.",
   "author": { "name": "zaytsv", "url": "https://zaytsv.ru" },
   "homepage": "https://zaytsv.ru/bots",

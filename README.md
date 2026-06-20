@@ -116,7 +116,7 @@ MCP-сервер (+ скилл для Claude Code) для **сборки и пу
 | `list_links(botId)` | стартовые трекинговые ссылки бота с UTM |
 | `article_list()` | свои статьи блога (id, slug, title, просмотры) |
 | `article_get(slug)` | статья по slug (Markdown content, excerpt, обложка) |
-| `article_publish(content, title?)` | новая статья (Markdown; title из `# ...`, если не задан; 1-я картинка → OG) → id, slug, URL |
+| `article_publish(content, title?, cover?, excerpt?)` | новая статья (Markdown; title из `# ...`, если не задан; обложка из `cover`-URL или 1-й картинки → OG; `excerpt` явно или авто) → id, slug, URL |
 | `article_update(id, content, title?)` | обновить свою статью по id |
 
 ---

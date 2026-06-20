@@ -4,9 +4,9 @@
   "description": "Плагины zaytsv для Claude Code.",
   "plugins": [
     {
-      "name": "zaytsv-bot-graph",
+      "name": "zaytsv-mcp",
       "source": "./",
-      "description": "Сборка и публикация воронок Telegram-ботов (zaytsv /bots) из описания через MCP + скилл."
+      "description": "Сборка и публикация воронок ботов (Telegram/MAX/Instagram, zaytsv /bots) из описания + публикация статей блога в Markdown — через MCP + скилл."
     }
   ]
 }
