@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * zaytsv-bot-graph-mcp — MCP-сервер для сборки и публикации воронок ботов
+ * zaytsv-mcp — MCP-сервер для сборки и публикации воронок ботов
  * (Telegram, MAX, Instagram) через API сервиса zaytsv /bots.
  * Без внешних зависимостей (голый JSON-RPC по stdio).
  *
@@ -404,7 +404,7 @@ rl.on("line", async (line) => {
   const { id, method, params } = req;
   try {
     if (method === "initialize") {
-      send({ jsonrpc: "2.0", id, result: { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "zaytsv-bot-graph", version: VERSION } } });
+      send({ jsonrpc: "2.0", id, result: { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "zaytsv-mcp", version: VERSION } } });
     } else if (method === "tools/list") {
       send({ jsonrpc: "2.0", id, result: { tools: TOOLS } });
     } else if (method === "tools/call") {
@@ -421,4 +421,4 @@ rl.on("line", async (line) => {
   }
 });
 
-process.stderr.write(`[zaytsv-bot-graph] MCP ${VERSION}. BASE=${BASE}. Авторизация: ${getToken() ? "токен" : getCookie() ? "cookie" : "не задана (вызови setup)"}.\n`);
+process.stderr.write(`[zaytsv-mcp] MCP ${VERSION}. BASE=${BASE}. Авторизация: ${getToken() ? "токен" : getCookie() ? "cookie" : "не задана (вызови setup)"}.\n`);

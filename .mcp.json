@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "bot-graph": {
+    "zaytsv-mcp": {
       "command": "node",
       "args": ["${CLAUDE_PLUGIN_ROOT}/src/index.mjs"],
       "env": {

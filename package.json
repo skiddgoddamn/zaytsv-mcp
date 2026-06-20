@@ -1,9 +1,9 @@
 {
-  "name": "zaytsv-bot-graph-mcp",
+  "name": "zaytsv-mcp",
   "version": "0.10.0",
   "description": "MCP server to build and publish Telegram, MAX and Instagram bot funnels/automations — and publish Markdown blog articles — in the zaytsv service. Zero dependencies.",
   "type": "module",
-  "bin": { "zaytsv-bot-graph-mcp": "src/index.mjs" },
+  "bin": { "zaytsv-mcp": "src/index.mjs" },
   "main": "src/index.mjs",
   "files": ["src", "skills", ".mcp.json", ".claude-plugin", "README.md", "LICENSE"],
   "scripts": {
@@ -14,7 +14,7 @@
   },
   "engines": { "node": ">=18" },
   "keywords": ["mcp", "telegram", "max", "instagram", "bot", "funnel", "automation", "articles", "blog", "markdown", "zaytsv", "claude-code", "model-context-protocol"],
-  "repository": { "type": "git", "url": "git+https://github.com/skiddgoddamn/zaytsv-bot-graph-mcp.git" },
+  "repository": { "type": "git", "url": "git+https://github.com/skiddgoddamn/zaytsv-mcp.git" },
   "homepage": "https://zaytsv.ru/bots",
   "license": "MIT"
 }

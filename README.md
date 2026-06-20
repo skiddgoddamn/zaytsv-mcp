@@ -1,8 +1,8 @@
-# zaytsv-bot-graph-mcp
+# zaytsv-mcp
 
-[![CI](https://github.com/skiddgoddamn/zaytsv-bot-graph-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/skiddgoddamn/zaytsv-bot-graph-mcp/actions/workflows/ci.yml)
-[![npm version](https://img.shields.io/npm/v/zaytsv-bot-graph-mcp.svg)](https://www.npmjs.com/package/zaytsv-bot-graph-mcp)
-[![node](https://img.shields.io/node/v/zaytsv-bot-graph-mcp.svg)](https://nodejs.org)
+[![CI](https://github.com/skiddgoddamn/zaytsv-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/skiddgoddamn/zaytsv-mcp/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/zaytsv-mcp.svg)](https://www.npmjs.com/package/zaytsv-mcp)
+[![node](https://img.shields.io/node/v/zaytsv-mcp.svg)](https://nodejs.org)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 MCP-сервер (+ скилл для Claude Code) для **сборки и публикации воронок/автоматизаций ботов (Telegram, MAX и Instagram)** в сервисе [zaytsv `/bots`](https://zaytsv.ru/bots): из текстового описания → валидный граф сценария → заливка и публикация через API.
@@ -28,8 +28,8 @@ MCP-сервер (+ скилл для Claude Code) для **сборки и пу
 ### Вариант A — как плагин Claude Code (рекомендуется)
 
 ```text
-/plugin marketplace add skiddgoddamn/zaytsv-bot-graph-mcp
-/plugin install zaytsv-bot-graph@zaytsv
+/plugin marketplace add skiddgoddamn/zaytsv-mcp
+/plugin install zaytsv-mcp@zaytsv
 ```
 
 Подтянутся и MCP-сервер `bot-graph`, и скилл `build-bot-funnel`. Проверить: `/mcp` и `/plugin`.
@@ -41,9 +41,9 @@ MCP-сервер (+ скилл для Claude Code) для **сборки и пу
 ```json
 {
   "mcpServers": {
-    "bot-graph": {
+    "zaytsv-mcp": {
       "command": "npx",
-      "args": ["-y", "zaytsv-bot-graph-mcp"],
+      "args": ["-y", "zaytsv-mcp"],
       "env": {
         "ZAYTSV_BASE_URL": "https://zaytsv.ru",
         "ZAYTSV_MCP_TOKEN": "zmcp_ваш_токен"
@@ -143,8 +143,8 @@ node skills/build-bot-funnel/validate.mjs path/to/import.json --platform=MAX
 ## Разработка
 
 ```bash
-git clone https://github.com/skiddgoddamn/zaytsv-bot-graph-mcp
-cd zaytsv-bot-graph-mcp
+git clone https://github.com/skiddgoddamn/zaytsv-mcp
+cd zaytsv-mcp
 ZAYTSV_MCP_TOKEN=zmcp_... node src/index.mjs   # стартует stdio MCP-сервер
 ```
 

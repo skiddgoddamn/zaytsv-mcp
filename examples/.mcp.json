@@ -1,9 +1,9 @@
 {
   "_comment": "Пример для любого MCP-клиента (Claude Code / Cursor / Windsurf). Запуск через npx без установки. Замени токен или используй ${ZAYTSV_MCP_TOKEN} из окружения.",
   "mcpServers": {
-    "bot-graph": {
+    "zaytsv-mcp": {
       "command": "npx",
-      "args": ["-y", "zaytsv-bot-graph-mcp"],
+      "args": ["-y", "zaytsv-mcp"],
       "env": {
         "ZAYTSV_BASE_URL": "https://zaytsv.ru",
         "ZAYTSV_MCP_TOKEN": "${ZAYTSV_MCP_TOKEN:-}"

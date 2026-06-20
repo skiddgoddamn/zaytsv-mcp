@@ -1,11 +1,11 @@
 {
-  "name": "zaytsv-bot-graph",
-  "displayName": "Zaytsv Bot Graph",
-  "version": "0.9.0",
-  "description": "MCP-сервер + скилл для сборки и публикации воронок Telegram-ботов в сервисе zaytsv /bots: из текстового описания → валидный граф → заливка и публикация по API.",
+  "name": "zaytsv-mcp",
+  "displayName": "Zaytsv MCP",
+  "version": "0.10.0",
+  "description": "MCP-сервер + скилл для zaytsv: сборка и публикация воронок ботов (Telegram/MAX/Instagram) и публикация статей блога в Markdown — всё одним токеном zmcp_.",
   "author": { "name": "zaytsv", "url": "https://zaytsv.ru" },
   "homepage": "https://zaytsv.ru/bots",
-  "repository": "https://github.com/skiddgoddamn/zaytsv-bot-graph-mcp",
+  "repository": "https://github.com/skiddgoddamn/zaytsv-mcp",
   "license": "MIT",
   "keywords": ["mcp", "telegram", "bot", "funnel", "zaytsv", "no-code", "claude-code"],
   "mcpServers": "./.mcp.json"
