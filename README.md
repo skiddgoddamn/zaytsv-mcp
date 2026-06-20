@@ -7,7 +7,8 @@
 
 MCP-сервер (+ скилл для Claude Code) для **сборки и публикации воронок/автоматизаций ботов (Telegram, MAX и Instagram)** в сервисе [zaytsv `/bots`](https://zaytsv.ru/bots): из текстового описания → валидный граф сценария → заливка и публикация через API.
 
-- 🤖 **26 инструментов сборки/публикации**: `list_bots`, `list_graphs`, `list_channels`, `get_graph`, `create_graph`, `update_graph`, `edit_graph_live`, `patch_graph`, `dry_run`, `publish_graph`, `import_funnel`, `list_templates`, `create_graph_from_template`, `clone_graph`, `copy_graph`, `rename_graph`, `set_active_graph`, `delete_graph`, `upload_file`, `list_files`, `delete_file`, `graph_analytics`, `list_bot_users`, `list_links` (+ `setup`/`set_token`).
+- 🤖 **30 инструментов сборки/публикации**: `list_bots`, `list_graphs`, `list_channels`, `get_graph`, `create_graph`, `update_graph`, `edit_graph_live`, `patch_graph`, `dry_run`, `publish_graph`, `import_funnel`, `list_templates`, `create_graph_from_template`, `clone_graph`, `copy_graph`, `rename_graph`, `set_active_graph`, `delete_graph`, `upload_file`, `list_files`, `delete_file`, `graph_analytics`, `list_bot_users`, `list_links` (+ `setup`/`set_token`).
+- 📝 **Статьи блога** (тот же токен `zmcp_…`): `article_publish`, `article_update`, `article_list`, `article_get` — публикация статей в Markdown (как README на GitHub) в раздел **/articles**.
 - 📎 **Медиа**: `upload_file` грузит фото/видео/документы в библиотеку **/bots/files** (до 50 МБ) и возвращает публичный URL — его вставляешь в медиа-карточку сценария.
 - 🧠 **Скилл `build-bot-funnel`**: учит агента собирать корректный граф (типы узлов, ветки, кнопки, задержки) и проверять его перед публикацией. Поддерживает Telegram, MAX и Instagram.
 - 📦 **Без зависимостей** — чистый Node ≥18, ставится и запускается сразу.
@@ -111,6 +112,10 @@ MCP-сервер (+ скилл для Claude Code) для **сборки и пу
 | `graph_analytics(graphId)` | прохождение сценария по узлам (где отваливается воронка) |
 | `list_bot_users(botId)` | подписчики/лиды бота (постранично, поиск `query`) |
 | `list_links(botId)` | стартовые трекинговые ссылки бота с UTM |
+| `article_list()` | свои статьи блога (id, slug, title, просмотры) |
+| `article_get(slug)` | статья по slug (Markdown content, excerpt, обложка) |
+| `article_publish(content, title?)` | новая статья (Markdown; title из `# ...`, если не задан; 1-я картинка → OG) → id, slug, URL |
+| `article_update(id, content, title?)` | обновить свою статью по id |
 
 ---
 
