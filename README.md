@@ -94,12 +94,14 @@ MCP-сервер (+ скилл для Claude Code) для **сборки и пу
 | `list_bots` | список ботов |
 | `list_graphs(botId)` | графы (сценарии) бота |
 | `list_channels(botId)` | каналы/группы, подключённые к боту (chatId для условия SUBSCRIBED) |
-| `get_graph(graphId)` | получить граф |
+| `get_graph(graphId, [summary], [saveToFile])` | получить граф; `summary:true` — компактная сводка (id/type/title + рёбра), `saveToFile` — записать полный JSON на диск (для больших графов, чтобы не упереться в лимит токенов) |
 | `create_graph(botId, name)` | создать пустой граф (DRAFT) |
-| `update_graph(graphId, graph\|nodes,edges)` | залить узлы/рёбра (PUT) |
+| `update_graph(graphId, graphFile\|graph\|nodes,edges)` | залить узлы/рёбра (PUT); `graphFile` — путь к локальному JSON, граф не нужно слать инлайном |
+| `edit_graph_live(graphId, graphFile\|graph\|nodes,edges)` | правка живого графа НА МЕСТЕ + авто-бэкап (рекомендуется для прода) |
+| `patch_graph(graphId, replacements)` | строковые замены в JSON графа на сервере (для больших/живых графов) |
 | `dry_run(graphId, kind, value)` | прогон без публикации |
 | `publish_graph(graphId)` | публикация (вернёт `errors[]` при провале) |
-| `import_funnel(botId, name, graph)` | всё за раз: create → update → dry-run → publish |
+| `import_funnel(botId, name, graphFile\|graph)` | всё за раз: create → update → dry-run → publish |
 | `list_templates()` | готовые шаблоны воронок |
 | `create_graph_from_template(botId, templateId, name)` | граф из шаблона (DRAFT) |
 | `clone_graph(graphId)` | копия графа в новый DRAFT |
